@@ -29,4 +29,23 @@ void VanLeerFlux::compute_flux(const std::vector<double>* uleft, const std::vect
 		fluxL[1] = fluxL[0]* ((g-1)*Mi + 2)*ci/g;
 		fluxL[2] = fluxL[0]* (((g-1)*Mi + 2)*ci)*(((g-1)*Mi + 2)*ci)/(2*(g*g-1.0));
 	}
+	else if(Mi > 1.0)
+	{
+		fluxL[0] = uleft[1];
+		fluxL[1] = uleft[1]*vi + pi;
+		fluxL[2] = vi*(uleft[2] + pi);
+	}
+
+	if(Mj >= 1.0)
+		for(j = 0; j < NVARS; j++)
+			fluxR[j] = 0;
+	else if(Mj >= -1.0)
+	{
+		fluxR[0] = -0.25*uright[0]*cj*(Mj-1)*(Mj-1);
+		fluxR[1] = fluxR[0]* ((g-1)*Mj - 2)*cj/g;
+		fluxR[2] = fluxR[0]* (((g-1)*Mj - 2)*cj)*(((g-1)*Mj - 2)*cj)/(2*(g*g-1.0));
+	}
+
+	for(j = 0; j < NVARS; j++)
+		flux[j] = fluxL[j] + fluxR[j];
 }

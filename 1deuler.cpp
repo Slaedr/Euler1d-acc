@@ -1,7 +1,7 @@
 #include "1deuler.hpp"
 
-Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs)
-	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs)
+Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux)
+	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), inviscidflux(inviscid_flux)
 {
 	x.resize(N+2);
 	dx.resize(N+2);
@@ -9,6 +9,14 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	res.resize(N+2);
 	A.resize(N+2);
 	nodes.resize(N+1);
+
+	if(inviscidflux == "vanleer")
+		flux = new VanLeer();
+}
+
+Euler1d::~Euler1d()
+{
+	delete flux;
 }
 
 void Euler1d::generate_mesh(int type, const std::vector<double>& pointlist)
@@ -132,8 +140,9 @@ void Euler1d::apply_boundary_conditions()
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 
-Euler1dExplicit::Euler1dExplicit(int num_cells, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double CFL, double f_time, int temporal_order)
-	: Euler1d(num_cells,leftBCflag,rightBCflag,leftBVs,rightBVs), cfl(CFL), ftime(f_time), temporalOrder(temporalOrder)
+Euler1dExplicit::Euler1dExplicit(int num_cells, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, 
+		double CFL, double f_time, int temporal_order)
+	: Euler1d(num_cells,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux), cfl(CFL), ftime(f_time), temporalOrder(temporalOrder)
 {
 	maxWaveSpeed.resize(N+2);
 }
