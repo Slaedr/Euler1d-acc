@@ -25,7 +25,13 @@ const double g = 1.4;
 class InviscidFlux
 {
 public:
-	virtual void compute_flux(const std::vector<double>* uleft, const std::vector<double>* uright, std::vector<double>* flux) = 0;
+	virtual void compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux) = 0;
+};
+
+class LocalLaxFriedrichsFlux : public InviscidFlux
+{
+public:
+	void compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux);
 };
 
 /// Van-Leer flux
@@ -35,7 +41,7 @@ class VanLeerFlux : public InviscidFlux
 	std::vector<double> fluxR;
 public:
 	VanLeerFlux();
-	void compute_flux(const std::vector<double>* uleft, const std::vector<double>* uright, std::vector<double>* flux);
+	void compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux);
 };
 
 #endif

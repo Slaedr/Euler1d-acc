@@ -8,10 +8,13 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	u.resize(N+2);
 	res.resize(N+2);
 	A.resize(N+2);
+	vol.resize(N+2);
 	nodes.resize(N+1);
 
 	if(inviscidflux == "vanleer")
-		flux = new VanLeer();
+		flux = new VanLeerFlux();
+	else if(inviscidflux == "llf")
+		flux = new LocalLaxFriedrichsFlux();
 }
 
 Euler1d::~Euler1d()
@@ -64,9 +67,12 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 			A[i] = cellCenteredAreas[i];
 
 		// TODO: assign ghost cell areas by linear extrapolation
-		A[0] = A[i];
+		A[0] = A[1];
 		A[N+1] = A[N];
 	}
+
+	for(int i = 0; i < N+2; i++)
+		vol[i] = dx[i]*A[i];
 }
 
 void Euler1d::compute_inviscid_fluxes()
@@ -78,7 +84,7 @@ void Euler1d::compute_inviscid_fluxes()
 	for(int i = 0; i < N+1; i++)
 	{
 		fluxes[i].resize(NVARS);
-		compute_flux(&u[i], &u[i+1], &fluxes[i]);
+		flux->compute_flux(u[i], u[i+1], fluxes[i]);
 
 		// get cross-sectional area at the ith section as average of cell-centered values
 		farea = (A[i] + A[i+1])/2.0;
@@ -140,9 +146,9 @@ void Euler1d::apply_boundary_conditions()
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 
-Euler1dExplicit::Euler1dExplicit(int num_cells, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, 
+Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, 
 		double CFL, double f_time, int temporal_order)
-	: Euler1d(num_cells,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux), cfl(CFL), ftime(f_time), temporalOrder(temporalOrder)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux), cfl(CFL), ftime(f_time), temporalOrder(temporalOrder)
 {
 	maxWaveSpeed.resize(N+2);
 }
@@ -150,14 +156,14 @@ Euler1dExplicit::Euler1dExplicit(int num_cells, int leftBCflag, int rightBCflag,
 void Euler1dExplicit::run()
 {
 	int step;
-	double time = 0;
+	double dt, time = 0;
 
 	std::vector<double> c(N+2);
 	std::vector<std::vector<double>> uold[2];
 	uold[0].resize(N+2);
 	for(int i = 0; i < N+2; i++)
 		uold[0][i].reserve(NVARS);
-	if(order > 1)
+	if(temporalOrder > 1)
 	{
 		uold[1].resize(N+2);
 		for(int i = 0; i < N+2; i++)
@@ -171,13 +177,13 @@ void Euler1dExplicit::run()
 		{
 			for(j = 0; j < NVARS; j++)
 			{
-				uold[i][j] = u[i][j];
+				uold[0][i][j] = u[i][j];
 				res[i][j] = 0;
 			}
 		}
 
 		compute_inviscid_fluxes();
-		compute_source_terms();
+		compute_source_term();
 
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
@@ -197,7 +203,7 @@ void Euler1dExplicit::run()
 		// RK step
 		for(i = 1; i < N+1; i++)
 			for(j = 0; j < NVARS; j++)
-				u[i][j] = uold[i][j] + dt*res[i][j];
+				u[i][j] = uold[0][i][j] + dt*res[i][j];
 
 		// apply BCs
 		apply_boundary_conditions();

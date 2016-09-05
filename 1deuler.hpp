@@ -17,7 +17,8 @@ class Euler1d
 protected:
 	int N;										///< Number of cells
 	std::vector<double> x;						///< Cell centers
-	std::vector<double> dx;						///< Size of each cell
+	std::vector<double> dx;						///< (1D) Size of each cell
+	std::vector<double> vol;					///< (3D) Volume of each cell
 	std::vector<double> nodes;					///< Mesh nodes
 	double domlen;								///< Physical length of the domain
 	std::vector<double> A;						///< Cross-sectional areas at cell centers
@@ -31,9 +32,9 @@ protected:
 	std::string inviscidflux;					///< string describing inviscid flux to use ("roe" or "vanleer"...)
 
 public:
-	Euler1d(int num_cells, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux);
+	Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux);
 
-	~Euler1d():
+	~Euler1d();
 
 	/// Generates a grid depending on 
 	/** \param type If type == 0, a uniform grid is generated and used. If type == 1, then grid points need to passed to the function in
@@ -64,7 +65,8 @@ class Euler1dExplicit : public Euler1d
 	int temporalOrder;							///< desired temporal order of accuracy
 
 public:
-	Euler1dExplicit(int num_cells, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double cfl, double f_time, int temporal_order);
+	Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscidFlux, double cfl, 
+			double fTime, int temporal_order);
 
 	void run();
 };
