@@ -1,3 +1,8 @@
+# Makefile for Euler1d project
+# Aditya Kashi
+#
+# Make sure environment variables CC and CXX have been set with the compilers to use, or set them below.
+
 NAME = euler1d
 PREFIX = build
 

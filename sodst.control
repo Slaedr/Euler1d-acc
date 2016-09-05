@@ -1,0 +1,21 @@
+-number-of-points
+100
+-domain-length
+1.0
+-left-BC
+0
+-right-BC
+0
+-left-boundary-values
+0 0 0
+-right-boundary-values
+0 0 0
+-inviscid-flux-scheme
+llf
+-CFL
+0.25
+-Final-physical-time
+1.0
+-temporal-order-of-accuracy
+1
+

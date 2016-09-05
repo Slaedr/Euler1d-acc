@@ -9,15 +9,31 @@ int main(int argc, char* argv[])
 	}
 
 	std::string confile(argv[1]);
+	std::ifstream conf(confile);
 
-	std::vector<double> leftb(NVARS,0);
-	std::vector<double> rightb(NVARS,0);
-	std::string inv_flux = "llf";
-	double cfl = 0.25;
-	double f_time = 0.5;
-	int temporal_order = 1;
+	int leftbc, rightbc, temporal_order, N;
+	std::vector<double> leftbv(NVARS,0);
+	std::vector<double> rightbv(NVARS,0);
+	std::string inv_flux, dum;
+	double cfl, f_time, L;
 
-	Euler1dExplicit prob(100, 1.0, 0,0, leftb, rightb, inv_flux, cfl, f_time, temporal_order);
+	conf >> dum; conf >> N;
+	conf >> dum; conf >> L;
+	conf >> dum; conf >> leftbc;
+	conf >> dum; conf >> rightbc;
+	conf dum;
+	for(int i = 0; i < NVARS; i++)
+		conf >> leftbv[i];
+	conf >> dum;
+	for(int i = 0; i < NVARS; i++)
+		conf >> rightbv[i];
+	conf >> dum; conf >> inv_flux;
+	conf >> dum; conf >> cfl;
+	conf >> dum; conf >> f_time;
+	conf >> dum; conf >> temporal_order;
+	conf.close();
+
+	Euler1dExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, inv_flux, cfl, f_time, temporal_order);
 
 	return 0;
 }
