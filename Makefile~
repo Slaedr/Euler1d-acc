@@ -14,7 +14,7 @@ PROFILE= #-pg
 #CC = gcc-6
 CFLAGS =
 #CXX = g++-6
-CPPFLAGS =  -std=c++14 -ggdb
+CPPFLAGS =  -std=c++11 -ggdb
 LFLAGS =  #-lmkl_intel_lp64 -lmkl_intel_thread -liomp5 -lmkl_core -lpthread 
  
 libsrcs =$(wildcard *.cpp)     

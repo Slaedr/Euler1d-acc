@@ -1,3 +1,5 @@
+-output-file
+../cases/sodst.dat
 -number-of-points
 100
 -domain-length
@@ -15,7 +17,11 @@ llf
 -CFL
 0.25
 -Final-physical-time
-1.0
+0.2
 -temporal-order-of-accuracy
 1
+-area-function-setup-type
+0
+-area-function-file
+
 

@@ -11,10 +11,22 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	vol.resize(N+2);
 	nodes.resize(N+1);
 
+	for(int i = 0; i < N+2; i++)
+	{
+		u[i].resize(NVARS);
+		res[i].resize(NVARS);
+	}
+
 	if(inviscidflux == "vanleer")
+	{
 		flux = new VanLeerFlux();
+		std::cout << "Euler1d: Using Van Leer numerical flux.\n";
+	}
 	else if(inviscidflux == "llf")
+	{
 		flux = new LocalLaxFriedrichsFlux();
+		std::cout << "Euler1d: Using local Lax-Friedrichs numerical flux.\n";
+	}
 }
 
 Euler1d::~Euler1d()
@@ -93,8 +105,8 @@ void Euler1d::compute_inviscid_fluxes()
 		for(int j = 0; j < NVARS; j++)
 		{
 			fluxes[i][j] *= farea;
-			res[i][j] -= vol[i]*fluxes[i][j];
-			res[i+1][j] += vol[i+1]*fluxes[i][j];
+			res[i][j] -= fluxes[i][j];
+			res[i+1][j] += fluxes[i][j];
 		}
 	}
 }
@@ -145,6 +157,20 @@ void Euler1d::apply_boundary_conditions()
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
+	
+void Euler1d::postprocess(std::string outfilename)
+{
+	std::ofstream ofile(outfilename);
+	double pressure, mach, c;
+	for(int i = 1; i < N+1; i++)
+	{
+		pressure = (g-1)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
+		c = sqrt(g*pressure/u[i][0]);
+		mach = (u[i][1]/u[i][0])/c;
+		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure << '\n';
+	}
+	ofile.close();
+}
 
 Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, 
 		double CFL, double f_time, int temporal_order)
@@ -158,17 +184,32 @@ void Euler1dExplicit::run()
 	int step;
 	double dt, time = 0;
 
-	std::vector<double> c(N+2);
-	std::vector<std::vector<double>> uold[2];
-	uold[0].resize(N+2);
+	// IC for Sod shock tube
 	for(int i = 0; i < N+2; i++)
-		uold[0][i].reserve(NVARS);
-	if(temporalOrder > 1)
+		if(x[i] <= 0.5)
+		{
+			u[i][0] = 1.0;
+			u[i][1] = 0;
+			u[i][2] = 2.5;
+		}
+		else
+		{
+			u[i][0] = 0.125;
+			u[i][1] = 0;
+			u[i][2] = 0.25;
+		}
+
+	std::vector<double> c(N+2);
+	std::vector<std::vector<double>> uold;
+	uold.resize(N+2);
+	for(int i = 0; i < N+2; i++)
+		uold[i].resize(NVARS);
+	/*if(temporalOrder > 1)
 	{
 		uold[1].resize(N+2);
 		for(int i = 0; i < N+2; i++)
-			uold[1][i].reserve(NVARS);
-	}
+			uold[1][i].resize(NVARS);
+	}*/
 
 	while(time < ftime)
 	{
@@ -177,7 +218,7 @@ void Euler1dExplicit::run()
 		{
 			for(j = 0; j < NVARS; j++)
 			{
-				uold[0][i][j] = u[i][j];
+				uold[i][j] = u[i][j];
 				res[i][j] = 0;
 			}
 		}
@@ -188,13 +229,15 @@ void Euler1dExplicit::run()
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
 		for(i = 1; i < N+1; i++)
+		{
 			c[i] = sqrt( g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0] );
+		}
 
-		double mws = dx[1]/fabs(u[1][1]) + c[1];
+		double mws = dx[1]/(fabs(u[1][1]) + c[1]);
 		double a;
 		for(i = 2; i < N+1; i++)
 		{
-			a = dx[i]/fabs(u[i][1]) + c[i];
+			a = dx[i]/(fabs(u[i][1]) + c[i]);
 			if(a < mws) mws = a;
 		}
 
@@ -203,7 +246,7 @@ void Euler1dExplicit::run()
 		// RK step
 		for(i = 1; i < N+1; i++)
 			for(j = 0; j < NVARS; j++)
-				u[i][j] = uold[0][i][j] + dt*res[i][j];
+				u[i][j] = uold[i][j] + dt/vol[i]*res[i][j];
 
 		// apply BCs
 		apply_boundary_conditions();
@@ -214,4 +257,6 @@ void Euler1dExplicit::run()
 		time += dt;
 		step++;
 	}
+
+	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << ", final time = " << time << std::endl;
 }

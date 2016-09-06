@@ -5,21 +5,11 @@
  */
 
 #ifndef __INVISCIDFLUX_H
-
 #define __INVISCIDFLUX_H
 
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <cmath>
-#include <vector>
-#include <string>
-
-#define ZERO_TOL 2.2e-16
-#define NVARS 3
-
-/// adiabatic index
-const double g = 1.4;
+#ifndef __DEFINITIONS_H
+#include "definitions.hpp"
+#endif
 
 /// All inviscid flux classes should inherit from this class
 class InviscidFlux
