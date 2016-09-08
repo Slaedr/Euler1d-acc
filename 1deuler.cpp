@@ -260,3 +260,74 @@ void Euler1dExplicit::run()
 
 	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << ", final time = " << time << std::endl;
 }
+
+
+Euler1dSteadyExplicit::Euler1dSteadyExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, 
+		std::string inviscidFlux, double cfl, double toler, double max_iter)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux), cfl(CFL), tol(toler), maxiter(max_iter)
+{
+	maxWaveSpeed.resize(N+2);
+}
+
+void Euler1dSteadyExplicit::run()
+{
+	int step;
+	double resnorm = 1.0, resnorm0 = 1.0;
+	std::vector<double> dt(N+2);
+
+	std::vector<double> c(N+2);
+	std::vector<std::vector<double>> uold;
+	uold.resize(N+2);
+	for(int i = 0; i < N+2; i++)
+		uold[i].resize(NVARS);
+
+	while(resnorm/resnorm0 > tol && step < maxiter)
+	{
+		int i,j;
+		for(i = 0; i < N+2; i++)
+		{
+			for(j = 0; j < NVARS; j++)
+			{
+				uold[i][j] = u[i][j];
+				res[i][j] = 0;
+			}
+		}
+
+		compute_inviscid_fluxes();
+		compute_source_term();
+
+		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
+		
+		for(i = 1; i < N+1; i++)
+		{
+			c[i] = sqrt( g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0] );
+		}
+
+		for(i = 1; i < N+1; i++)
+		{
+			dt[i] = cfl * dx[i]/(fabs(u[i][1]) + c[i]);
+		}
+
+		resnorm = 0;
+		for(i = 1; i <= N; i++)
+			resnorm += res[i][0]*res[i][0]*dx[i];
+		resnorm = sqrt(resnorm);
+		if(step==0)
+			resnorm0 = resnorm;
+
+		// RK step
+		for(i = 1; i < N+1; i++)
+			for(j = 0; j < NVARS; j++)
+				u[i][j] = uold[i][j] + dt[i]/vol[i]*res[i][j];
+
+		// apply BCs
+		apply_boundary_conditions();
+
+		if(step % 10 == 0)
+			std::cout << "Euler1dSteadyExplicit: run(): Step " << step << ", relative mass flux norm = " << resnorm/resnorm0 << std::endl;
+
+		step++;
+	}
+
+	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << ", final time = " << time << std::endl;
+}
