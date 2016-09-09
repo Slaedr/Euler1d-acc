@@ -78,7 +78,7 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 		for(int i = 1; i < N+1; i++)
 			A[i] = cellCenteredAreas[i];
 
-		// TODO: assign ghost cell areas by linear extrapolation
+		// maybe assign ghost cell areas by linear extrapolation?
 		A[0] = A[1];
 		A[N+1] = A[N];
 	}
@@ -184,12 +184,43 @@ void Euler1d::apply_boundary_conditions()
 	}
 	else if(bcR == 3)
 	{
-		// subsonic outflow
-		double l1, l2, l3;
-	}
-	else if(bcR == 4)
-	{
-		// TODO: supersonic outflow
+		// outflow
+		double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
+		std::vector<double> uold = u[N+1];
+		vold = uold[1]/uold[0];
+		pold = (g-1.0)*(uold[2]-0.5*uold[0]*vold*vold);
+		cold = sqrt(g*pold/uold[0]);
+		vold1 = u[N][1]/u[N][0];
+		pold1 = (g-1.0)*(u[N][2]-0.5*u[N][0]*vold1*vold1);
+		cold1 = sqrt(g*pold1/u[N][0]);
+
+		dt0 = cfl*dx[N+1]/(fabs(vold)+cold);
+		l1 = (vold+vold1)*0.5*dt0/dx[N+1];
+		l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
+		l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
+		r1 = -l1*( u[N+1][0] - u[N][0] - 1.0/(cold*cold)*(pold - pold1));
+		r2 = -l2*( pold - pold[1] + u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
+		r3 = -l3*( pold - pold[1] - u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
+		Mold = (vold+vold1)/(cold+cold1);
+
+		// check whether supersonic or subsonic
+		if(Mold > 1)
+			dp = 0.5*(r2+r3);
+		else
+			dp = 0;
+
+		drho = r1 + dp/(cold*cold);
+		dv = (r2-dp)/(u[N+1][0]*cold);
+
+		u[N+1][0] += drho;
+		u[N+1][1] = u[N+1][0]*(vold + dv);
+
+		if(Mold > 1)
+			p = pold + dp;
+		else
+			p = bcvalR[0];
+
+		u[N+1][2] = p/(g-1.0) + 0.5*u[N+1][0]*(vold+dv)*(vold+dv);
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
@@ -316,6 +347,19 @@ void Euler1dSteadyExplicit::run()
 	uold.resize(N+2);
 	for(int i = 0; i < N+2; i++)
 		uold[i].resize(NVARS);
+
+	// initial conditions
+	// All cells but the last are initially according to the left BCs.
+	for(int i = 0; i < N+2; i++)
+	{
+		u[i][0] = bcvalL[0]/(R*bcvalL[1]);		// density = p/RT
+		u[i][1] = 0;
+		u[i][2] = bcvalL[0]/(g-1.0);			// E = p/(g-1)
+	}
+
+	// set values for last cell from right BCs
+	u[N+1][0] = bcvalR[0]/(R*bcvalL[1]);
+	u[N+1][2] = bcvalR[0]/(g-1.0);
 
 	while(resnorm/resnorm0 > tol && step < maxiter)
 	{

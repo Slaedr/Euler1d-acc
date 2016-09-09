@@ -1,0 +1,29 @@
+-type
+steady
+-output-file
+../cases/nozzle.dat
+-number-of-points
+50
+-domain-length
+1.0
+-left-BC
+2
+-right-BC
+1
+-left-boundary-values(Pt,Tt,M)
+101362.5 295.1 0
+-right-boundary-values(P)
+81090 0 0
+-inviscid-flux-scheme
+llf
+-CFL
+0.25
+-Tolerance
+1e-10
+-Max-iterations
+10
+-area-function-setup-type
+1
+-area-function-file
+cross-section-profile.dat
+
