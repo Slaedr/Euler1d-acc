@@ -1,7 +1,7 @@
 #include "1deuler.hpp"
 
-Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux)
-	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), inviscidflux(inviscid_flux)
+Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double CFL)
+	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), inviscidflux(inviscid_flux), cfl(CFL)
 {
 	x.resize(N+2);
 	dx.resize(N+2);
@@ -132,12 +132,47 @@ void Euler1d::apply_boundary_conditions()
 	}
 	else if(bcL == 1)
 	{
-		// TODO: supersonic inflow
-		u[0][0] = 2*bcvalL[0]-u[1][0];
+		// supersonic inflow
+		// get conserved variables from pt, Tt and M
+		double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+		double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
+		double c = sqrt(g*R*T);
+		double v = bcvalL[2]*c;
+		double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
+		double rho = p/(R*T);
+		double E = p/(g-1.0) + 0.5*rho*v*v;
+		/*u[0][0] = 2*rho - u[1][0];
+		u[0][1] = 2*rho*v - u[1][1];
+		u[0][2] = 2*E - u[1][2];*/
+		u[0][0] = rho;
+		u[0][1] = rho*v;
+		u[0][2] = E;
 	}
 	else if(bcL == 2)
 	{
-		// TODO: subsonic inflow
+		// subsonic inflow
+		// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
+		double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p;
+		std::vector<double> uold0 = u[0];
+		vold = uold0[1]/uold0[0];
+		pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
+		cold = sqrt( g*(g-1)*(uold0[2]/uold0[0]-0.5*uold0[1]*uold0[1]/(uold0[0]*uold0[0])) );
+		vold1 = u[1][1]/u[1][0];
+		pold1 = (g-1)*(u[1][2] - 0.5*u[1][1]*u[1][1]/u[1][0]);
+		cold1 = sqrt( g*(g-1)*(u[1][2]/u[1][0]-0.5*u[1][1]*u[1][1]/(u[1][0]*u[1][0])) );
+
+		astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+		dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/(astar*astar), 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/(astar*astar);
+		dt0 = cfl*dx[0]/(fabs(vold)+cold);
+		lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
+		du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
+
+		v = vold + du;
+		T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/(astar*astar));
+		p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
+		u[0][0] = p/(R*T);
+		u[0][1] = u[0][0]*v;
+		u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 
@@ -149,7 +184,8 @@ void Euler1d::apply_boundary_conditions()
 	}
 	else if(bcR == 3)
 	{
-		// TODO: subsonic outflow
+		// subsonic outflow
+		double l1, l2, l3;
 	}
 	else if(bcR == 4)
 	{
@@ -174,7 +210,7 @@ void Euler1d::postprocess(std::string outfilename)
 
 Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, 
 		double CFL, double f_time, int temporal_order)
-	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux), cfl(CFL), ftime(f_time), temporalOrder(temporalOrder)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux, CFL), ftime(f_time), temporalOrder(temporalOrder)
 {
 	maxWaveSpeed.resize(N+2);
 }

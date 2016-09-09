@@ -30,9 +30,10 @@ protected:
 	std::vector<double> bcvalR;					///< right boundary value
 	InviscidFlux* flux;							///< Inviscid flux computation context
 	std::string inviscidflux;					///< string describing inviscid flux to use ("roe" or "vanleer"...)
+	double cfl;									///< CFL number			
 
 public:
-	Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux);
+	Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double CFL);
 
 	~Euler1d();
 
@@ -59,7 +60,6 @@ public:
 /// Explicit RK solver for time-dependent 1D Euler equations
 class Euler1dExplicit : public Euler1d
 {
-	double cfl;									///< CFL number			
 	double ftime;								///< Physical time for which to simulate
 	std::vector<double> maxWaveSpeed;			///< for computing time steps
 	int temporalOrder;							///< desired temporal order of accuracy

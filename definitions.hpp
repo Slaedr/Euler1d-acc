@@ -14,6 +14,11 @@
 /// adiabatic index
 const double g = 1.4;
 
+/// Specific gas constant of air
+const double R = 287.1;
+
+const double Cv = R/(g-1.0);
+
 void matprint(const std::vector<std::vector<double>>& mat);
 
 #endif
