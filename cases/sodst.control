@@ -1,6 +1,6 @@
 -output-file
 ../cases/sodst.dat
--number-of-points
+-number-of-cells
 100
 -domain-length
 1.0

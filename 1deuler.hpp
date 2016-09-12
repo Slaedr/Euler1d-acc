@@ -74,7 +74,6 @@ public:
 /// Explicit RK solver for steady-state 1D Euler
 class Euler1dSteadyExplicit : public Euler1d
 {
-	double cfl;
 	double tol;
 	int maxiter;
 	std::vector<double> maxWaveSpeed;			///< for computing time steps

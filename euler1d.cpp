@@ -76,7 +76,9 @@ int main(int argc, char* argv[])
 			conf >> dum; conf >> areafile;
 			std::ifstream areaf(areafile);
 			for(int i = 0; i < N; i++)
+			{
 				areaf >> areas[i];
+			}
 			areaf.close();
 		}
 		
@@ -85,7 +87,7 @@ int main(int argc, char* argv[])
 		Euler1dSteadyExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, inv_flux, cfl, tol, maxiter);
 		prob.generate_mesh(0,plist);
 		prob.set_area(areatype,areas);
-		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << tol << " " << maxiter << " " << temporal_order << std::endl;
+		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << tol << " " << maxiter << std::endl;
 
 		prob.run();
 

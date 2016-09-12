@@ -76,7 +76,7 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 	else
 	{
 		for(int i = 1; i < N+1; i++)
-			A[i] = cellCenteredAreas[i];
+			A[i] = cellCenteredAreas[i-1];
 
 		// maybe assign ghost cell areas by linear extrapolation?
 		A[0] = A[1];
@@ -84,7 +84,9 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 	}
 
 	for(int i = 0; i < N+2; i++)
+	{
 		vol[i] = dx[i]*A[i];
+	}
 }
 
 void Euler1d::compute_inviscid_fluxes()
@@ -92,10 +94,12 @@ void Euler1d::compute_inviscid_fluxes()
 	std::vector<std::vector<double>> fluxes(N+1);
 	double farea;
 
+	for(int i = 0; i < N+1; i++)
+		fluxes[i].resize(NVARS);
+
 	// iterate over interfaces
 	for(int i = 0; i < N+1; i++)
 	{
-		fluxes[i].resize(NVARS);
 		flux->compute_flux(u[i], u[i+1], fluxes[i]);
 
 		// get cross-sectional area at the ith section as average of cell-centered values
@@ -109,6 +113,7 @@ void Euler1d::compute_inviscid_fluxes()
 			res[i+1][j] += fluxes[i][j];
 		}
 	}
+	//std::cout << "flux n " << fluxes[N][0] << " " << fluxes[N][1] << std::endl;
 }
 
 void Euler1d::compute_source_term()
@@ -199,8 +204,8 @@ void Euler1d::apply_boundary_conditions()
 		l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
 		l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
 		r1 = -l1*( u[N+1][0] - u[N][0] - 1.0/(cold*cold)*(pold - pold1));
-		r2 = -l2*( pold - pold[1] + u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
-		r3 = -l3*( pold - pold[1] - u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
+		r2 = -l2*( pold - pold1 + u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
+		r3 = -l3*( pold - pold1 - u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
 		Mold = (vold+vold1)/(cold+cold1);
 
 		// check whether supersonic or subsonic
@@ -234,7 +239,7 @@ void Euler1d::postprocess(std::string outfilename)
 		pressure = (g-1)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
 		c = sqrt(g*pressure/u[i][0]);
 		mach = (u[i][1]/u[i][0])/c;
-		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure << '\n';
+		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure/100000.0 << " " << u[i][1] << " " << c << '\n';
 	}
 	ofile.close();
 }
@@ -330,8 +335,8 @@ void Euler1dExplicit::run()
 
 
 Euler1dSteadyExplicit::Euler1dSteadyExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, 
-		std::string inviscidFlux, double cfl, double toler, double max_iter)
-	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux), cfl(CFL), tol(toler), maxiter(max_iter)
+		std::string inviscidFlux, double CFL, double toler, int max_iter)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscidFlux, CFL), tol(toler), maxiter(max_iter)
 {
 	maxWaveSpeed.resize(N+2);
 }
