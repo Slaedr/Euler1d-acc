@@ -2,20 +2,22 @@
 
 void LocalLaxFriedrichsFlux::compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux)
 {
+	double eps = 0.25;
+
 	double pl = (g-1) * (uleft[2]-0.5*uleft[1]*uleft[1]/uleft[0]);
 	double pr = (g-1) * (uright[2]-0.5*uright[1]*uright[1]/uright[0]);
 	double cl = sqrt(g* pl / uleft[0]);
 	double cr = sqrt(g* pr / uright[0]);
 
 	// find max abs eigenvalue at face
-	double el = fabs(uleft[1]/uleft[0] + cl);
-	double er = fabs(uright[1]/uright[0] + cr);
+	double el = fabs(uleft[1]/uleft[0]) + cl;
+	double er = fabs(uright[1]/uright[0]) + cr;
 	double emax = el > er ? el : er;
 
 	// get flux
-	flux[0] = 0.5*( uleft[1] + uright[1] - emax*(uright[0]-uleft[0]) );
-	flux[1] = 0.5*( uleft[1]*uleft[1]/uleft[0] + pl + uright[1]*uright[1]/uright[0] + pr - emax*(uright[1]-uleft[1]) );
-	flux[2] = 0.5*( uleft[1]/uleft[0]*(uleft[2]+pl) + uright[1]/uright[0]*(uright[2]+pr) - emax*(uright[2]-uleft[2]) );
+	flux[0] = 0.5*( uleft[1] + uright[1] - eps*emax*(uright[0]-uleft[0]) );
+	flux[1] = 0.5*( uleft[1]*uleft[1]/uleft[0] + pl + uright[1]*uright[1]/uright[0] + pr - eps*emax*(uright[1]-uleft[1]) );
+	flux[2] = 0.5*( uleft[1]/uleft[0]*(uleft[2]+pl) + uright[1]/uright[0]*(uright[2]+pr) - eps*emax*(uright[2]-uleft[2]) );
 }
 
 VanLeerFlux::VanLeerFlux()

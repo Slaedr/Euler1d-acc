@@ -35,7 +35,7 @@ protected:
 public:
 	Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double CFL);
 
-	~Euler1d();
+	virtual ~Euler1d();
 
 	/// Generates a grid depending on 
 	/** \param type If type == 0, a uniform grid is generated and used. If type == 1, then grid points need to passed to the function in

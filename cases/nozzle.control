@@ -3,7 +3,7 @@ steady
 -output-file
 ../cases/nozzle.dat
 -number-of-cells
-50
+49
 -domain-length
 1.0
 -left-BC
@@ -11,19 +11,22 @@ steady
 -right-BC
 3
 -left-boundary-values(Pt,Tt,M)
-101362.5 295.1 0
+2117.0 531.2 0.0
 -right-boundary-values(P)
-81090 0 0
+1693.6 0 0
 -inviscid-flux-scheme
 llf
 -CFL
-0.25
+0.1
 -Tolerance
-1e-10
+1e-9
 -Max-iterations
-10000
+750000
 -area-function-setup-type
 1
 -area-function-file
-../cases/cross-section-profile.dat
+../cases/cross-section-profile-49.dat
 
+101362.5 295.1
+81090
+1693.6

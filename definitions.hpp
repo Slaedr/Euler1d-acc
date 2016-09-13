@@ -15,7 +15,8 @@
 const double g = 1.4;
 
 /// Specific gas constant of air
-const double R = 287.1;
+//const double R = 287.1;
+const double R = 1716;
 
 const double Cv = R/(g-1.0);
 

@@ -122,7 +122,7 @@ void Euler1d::compute_source_term()
 	for(int i = 1; i <= N; i++)
 	{
 		p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
-		res[i][1] += p*(A[i+1] - 2*A[i] + A[i-1]);
+		res[i][1] += p*(A[i+1] - A[i-1])*0.5;
 	}
 }
 
@@ -139,7 +139,7 @@ void Euler1d::apply_boundary_conditions()
 	{
 		// supersonic inflow
 		// get conserved variables from pt, Tt and M
-		double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+		//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
 		double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
 		double c = sqrt(g*R*T);
 		double v = bcvalL[2]*c;
@@ -161,10 +161,10 @@ void Euler1d::apply_boundary_conditions()
 		std::vector<double> uold0 = u[0];
 		vold = uold0[1]/uold0[0];
 		pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
-		cold = sqrt( g*(g-1)*(uold0[2]/uold0[0]-0.5*uold0[1]*uold0[1]/(uold0[0]*uold0[0])) );
+		cold = sqrt( g*pold/uold0[0] );
 		vold1 = u[1][1]/u[1][0];
 		pold1 = (g-1)*(u[1][2] - 0.5*u[1][1]*u[1][1]/u[1][0]);
-		cold1 = sqrt( g*(g-1)*(u[1][2]/u[1][0]-0.5*u[1][1]*u[1][1]/(u[1][0]*u[1][0])) );
+		cold1 = sqrt( g*pold1/u[1][0] );
 
 		astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
 		dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/(astar*astar), 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/(astar*astar);
@@ -203,9 +203,10 @@ void Euler1d::apply_boundary_conditions()
 		l1 = (vold+vold1)*0.5*dt0/dx[N+1];
 		l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
 		l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
+
 		r1 = -l1*( u[N+1][0] - u[N][0] - 1.0/(cold*cold)*(pold - pold1));
-		r2 = -l2*( pold - pold1 + u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
-		r3 = -l3*( pold - pold1 - u[N+1][0]*cold*(u[N+1][1] - u[N][1]));
+		r2 = -l2*( pold - pold1 + u[N+1][0]*cold*(vold - vold1));
+		r3 = -l3*( pold - pold1 - u[N+1][0]*cold*(vold - vold1));
 		Mold = (vold+vold1)/(cold+cold1);
 
 		// check whether supersonic or subsonic
@@ -239,7 +240,7 @@ void Euler1d::postprocess(std::string outfilename)
 		pressure = (g-1)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
 		c = sqrt(g*pressure/u[i][0]);
 		mach = (u[i][1]/u[i][0])/c;
-		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure/100000.0 << " " << u[i][1] << " " << c << '\n';
+		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure/bcvalL[0] << " " << u[i][1] << " " << c << '\n';
 	}
 	ofile.close();
 }
@@ -343,7 +344,7 @@ Euler1dSteadyExplicit::Euler1dSteadyExplicit(int num_cells, double length, int l
 
 void Euler1dSteadyExplicit::run()
 {
-	int step;
+	int step = 0;
 	double resnorm = 1.0, resnorm0 = 1.0;
 	std::vector<double> dt(N+2);
 
@@ -354,8 +355,34 @@ void Euler1dSteadyExplicit::run()
 		uold[i].resize(NVARS);
 
 	// initial conditions
-	// All cells but the last are initially according to the left BCs.
-	for(int i = 0; i < N+2; i++)
+	
+	double p_t = bcvalL[0];
+	double T_t = bcvalL[1];
+	double M = bcvalL[2];
+	double term = 1.0 + (g-1.0)*0.5*M*M;
+	double Tin = T_t/term;
+	double pin = p_t*pow(term, -g/(g-1.0));
+
+	double pex = bcvalR[0], cex, vex;
+
+	u[0][0] = pin/(R*Tin);
+	double cin = sqrt(g*pin/u[0][0]);
+	u[0][1] = u[0][0]*M*cin;
+	u[0][2] = pin/(g-1.0)+0.5*u[0][1]*M*cin;
+
+	// set rest of the cells according to exit conditions, assuming constant Mach number and temperature
+	for(int i = 1; i <= N+1; i++)
+	{
+		u[i][0] = pex/(R*Tin);
+		cex = sqrt(g*pex/u[i][0]);
+		vex = M*cex;
+		u[i][1] = u[i][0]*vex;
+		u[i][2] = pex/(g-1.0) + 0.5*u[i][0]*vex*vex;
+	}
+	
+	// Assume initial velocity is zero throughout
+	// All cells but the last are initially according to the left BCs.`
+	/*for(int i = 0; i < N+1; i++)
 	{
 		u[i][0] = bcvalL[0]/(R*bcvalL[1]);		// density = p/RT
 		u[i][1] = 0;
@@ -365,6 +392,9 @@ void Euler1dSteadyExplicit::run()
 	// set values for last cell from right BCs
 	u[N+1][0] = bcvalR[0]/(R*bcvalL[1]);
 	u[N+1][2] = bcvalR[0]/(g-1.0);
+	u[N+1][1] = 0;*/
+
+	// Start time loop
 
 	while(resnorm/resnorm0 > tol && step < maxiter)
 	{
@@ -414,5 +444,7 @@ void Euler1dSteadyExplicit::run()
 		step++;
 	}
 
-	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << ", final time = " << time << std::endl;
+	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << std::endl;
+	if(step == maxiter)
+		std::cout << "Euler1dExplicit: run(): Not converged!" << std::endl;
 }
