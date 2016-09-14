@@ -77,6 +77,9 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 	{
 		for(int i = 1; i < N+1; i++)
 			A[i] = cellCenteredAreas[i-1];
+		/*double h = 0.15, t1 = 0.8, t2 = 3.0;
+		for(int i = 1; i < N+1; i++)
+			A[i] = 1.0 - h*pow(sin(PI*pow(x[i],t1)),t2);*/
 
 		// maybe assign ghost cell areas by linear extrapolation?
 		A[0] = A[1];

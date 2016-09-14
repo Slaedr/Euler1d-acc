@@ -11,6 +11,8 @@
 #define ZERO_TOL 2.2e-16
 #define NVARS 3
 
+const double PI = 3.14159265359;
+
 /// adiabatic index
 const double g = 1.4;
 
