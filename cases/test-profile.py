@@ -2,10 +2,10 @@
 import sys
 import numpy as np
 
-fname = "test-profile-49.dat"
+fname = "test-profile-99.dat"
 m = 1.0;
 c = 1.0;
-N = 49
+N = 99;
 L = 1.0;
 
 pi = 3.14159265359;

@@ -1,19 +1,19 @@
 -type
 steady
 -output-file
-../cases/test.dat
+../cases/test-super.dat
 -number-of-cells
 99
 -domain-length
 1.0
 -left-BC
-2
+1
 -right-BC
 3
 -left-boundary-values(Pt,Tt,M)
-2510.26 557.55 0.2
+7768.63 769.95 1.5
 -right-boundary-values(P)
-2424.76 0 0
+451.66 0 0
 -inviscid-flux-scheme
 llf
 -CFL

@@ -160,7 +160,7 @@ void Euler1d::apply_boundary_conditions()
 	{
 		// subsonic inflow
 		// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
-		double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p;
+		double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
 		std::vector<double> uold0 = u[0];
 		vold = uold0[1]/uold0[0];
 		pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
@@ -181,6 +181,10 @@ void Euler1d::apply_boundary_conditions()
 		u[0][0] = p/(R*T);
 		u[0][1] = u[0][0]*v;
 		u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
+
+		c = sqrt(g*p/u[0][0]);
+		M = v/c;
+		std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 
