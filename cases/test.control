@@ -7,11 +7,11 @@ steady
 -domain-length
 1.0
 -left-BC
-2
+1
 -right-BC
 3
 -left-boundary-values(Pt,Tt,M)
-2510.26 557.55 0.2
+2510.26 557.55 0.5
 -right-boundary-values(P)
 2424.76 0 0
 -inviscid-flux-scheme

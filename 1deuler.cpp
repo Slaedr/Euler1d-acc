@@ -140,51 +140,62 @@ void Euler1d::apply_boundary_conditions()
 	}
 	else if(bcL == 1)
 	{
-		// supersonic inflow
-		// get conserved variables from pt, Tt and M
-		//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
-		double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
-		double c = sqrt(g*R*T);
-		double v = bcvalL[2]*c;
-		double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
-		double rho = p/(R*T);
-		double E = p/(g-1.0) + 0.5*rho*v*v;
-		/*u[0][0] = 2*rho - u[1][0];
-		u[0][1] = 2*rho*v - u[1][1];
-		u[0][2] = 2*E - u[1][2];*/
-		u[0][0] = rho;
-		u[0][1] = rho*v;
-		u[0][2] = E;
-	}
-	else if(bcL == 2)
-	{
-		// subsonic inflow
-		// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
-		double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
-		std::vector<double> uold0 = u[0];
-		vold = uold0[1]/uold0[0];
-		pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
-		cold = sqrt( g*pold/uold0[0] );
-		vold1 = u[1][1]/u[1][0];
-		pold1 = (g-1)*(u[1][2] - 0.5*u[1][1]*u[1][1]/u[1][0]);
-		cold1 = sqrt( g*pold1/u[1][0] );
+		double M_in, c_in, v_in, p_in;
+		v_in = u[0][1]/u[0][0];
+		p_in = (g-1.0)*(u[0][2] - 0.5*u[0][0]*v_in*v_in);
+		c_in = sqrt(g*p_in/u[0][0]);
+		M_in = v_in/c_in;
 
-		astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
-		dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/(astar*astar), 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/(astar*astar);
-		dt0 = cfl*dx[0]/(fabs(vold)+cold);
-		lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
-		du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
+		if(M_in >= 1.0)
+		{
+			// supersonic inflow
+			// get conserved variables from pt, Tt and M
+			//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+			double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
+			double c = sqrt(g*R*T);
+			double v = bcvalL[2]*c;
+			double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
+			double rho = p/(R*T);
+			double E = p/(g-1.0) + 0.5*rho*v*v;
+			/*u[0][0] = 2*rho - u[1][0];
+			u[0][1] = 2*rho*v - u[1][1];
+			u[0][2] = 2*E - u[1][2];*/
+			u[0][0] = rho;
+			u[0][1] = rho*v;
+			u[0][2] = E;
+		}
+		else if(M_in >= 0)
+		{
+			// subsonic inflow
+			// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
+			double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
+			std::vector<double> uold0 = u[0];
+			vold = uold0[1]/uold0[0];
+			pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
+			cold = sqrt( g*pold/uold0[0] );
+			vold1 = u[1][1]/u[1][0];
+			pold1 = (g-1)*(u[1][2] - 0.5*u[1][1]*u[1][1]/u[1][0]);
+			cold1 = sqrt( g*pold1/u[1][0] );
 
-		v = vold + du;
-		T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/(astar*astar));
-		p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
-		u[0][0] = p/(R*T);
-		u[0][1] = u[0][0]*v;
-		u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
+			astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+			dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/astar, 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/astar;
+			dt0 = cfl*dx[0]/(fabs(vold)+cold);
+			lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
+			du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
 
-		c = sqrt(g*p/u[0][0]);
-		M = v/c;
-		std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;
+			v = vold + du;
+			T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/astar);
+			p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
+			u[0][0] = p/(R*T);
+			u[0][1] = u[0][0]*v;
+			u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
+
+			/*c = sqrt(g*p/u[0][0]);
+			M = v/c;
+			std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;*/
+		}
+		else
+			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 
@@ -372,13 +383,19 @@ void Euler1dSteadyExplicit::run()
 
 	double pex = bcvalR[0], cex, vex;
 
-	u[0][0] = pin/(R*Tin);
-	double cin = sqrt(g*pin/u[0][0]);
-	u[0][1] = u[0][0]*M*cin;
-	u[0][2] = pin/(g-1.0)+0.5*u[0][1]*M*cin;
+	double cin;
+	
+	// set some cells according to inlet condition
+	for(int i = 0; i <= N; i++)
+	{
+		u[i][0] = pin/(R*Tin);
+		double cin = sqrt(g*pin/u[i][0]);
+		u[i][1] = u[i][0]*M*cin;
+		u[i][2] = pin/(g-1.0)+0.5*u[i][1]*M*cin;
+	}
 
 	// set rest of the cells according to exit conditions, assuming constant Mach number and temperature
-	for(int i = 1; i <= N+1; i++)
+	for(int i = N+1; i <= N+1; i++)
 	{
 		u[i][0] = pex/(R*Tin);
 		cex = sqrt(g*pex/u[i][0]);

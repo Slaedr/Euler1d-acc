@@ -7,15 +7,15 @@ steady
 -domain-length
 1.0
 -left-BC
-2
+1
 -right-BC
 3
 -left-boundary-values(Pt,Tt,M)
-2117.0 531.2 0.0
+2117.0 531.2 0.2
 -right-boundary-values(P)
-1693.6 0 0
+1270.2 0 0
 -inviscid-flux-scheme
-llf
+vanleer
 -CFL
 0.1
 -Tolerance
@@ -27,6 +27,7 @@ llf
 -area-function-file
 ../cases/cross-section-profile-49.dat
 
-101362.5 295.1
-81090
-1693.6
+1693.6 0.80
+1608.9 0.76
+1439.6 0.68
+1270.2 0.60
