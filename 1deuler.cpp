@@ -1,7 +1,7 @@
 #include "1deuler.hpp"
 
 Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double CFL)
-	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), inviscidflux(inviscid_flux), cfl(CFL)
+	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), cfl(CFL)
 {
 	x.resize(N+2);
 	dx.resize(N+2);
@@ -17,12 +17,12 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		res[i].resize(NVARS);
 	}
 
-	if(inviscidflux == "vanleer")
+	if(inviscid_flux == "vanleer")
 	{
 		flux = new VanLeerFlux();
 		std::cout << "Euler1d: Using Van Leer numerical flux.\n";
 	}
-	else if(inviscidflux == "llf")
+	else if(inviscid_flux == "llf")
 	{
 		flux = new LocalLaxFriedrichsFlux();
 		std::cout << "Euler1d: Using local Lax-Friedrichs numerical flux.\n";
