@@ -9,6 +9,7 @@
 #include <string>
 
 #define ZERO_TOL 2.2e-16
+#define SMALL_NUMBER 1e-10
 #define NVARS 3
 
 const double PI = 3.14159265359;

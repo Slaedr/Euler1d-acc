@@ -39,11 +39,23 @@ protected:
 	const std::vector<std::vector<double>>& dudx;		///< Cell-centred slopes
 	std::vector<std::vector<double>>& uleft;			///< Left value at each face
 	std::vector<std::vector<double>>& uright;			///< Right value at each face
+	std::string limiter;								///< String describing the limiter to use
 public:
 	FaceReconstruction(const int _N, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright);
+			std::vector<std::vector<double>>& uright, std::string _limiter);
 	virtual ~FaceReconstruction();
 	virtual void compute_face_values() = 0;
+};
+
+class MUSCLReconstruction : public FaceReconstruction
+{
+	double k;											///< Controls order of reconstruction; people generally use 1/3
+	const SlopeLimiter* lim;							///< Slope limiter to use
+pubic:
+	MUSCLReconstruction(const int _N, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
+			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);
+	~MUSCLReconstruction();
+	void compute_face_values();
 };
 
 #endif
