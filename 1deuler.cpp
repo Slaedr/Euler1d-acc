@@ -202,8 +202,8 @@ void Euler1d::apply_boundary_conditions()
 	if(bcR == 0)
 	{
 		u[N+1][0] = u[N][0];
-		u[N+1][1] = -u[N+1][1];
-		u[N+1][2] = u[N+1][2];
+		u[N+1][1] = -u[N][1];
+		u[N+1][2] = u[N][2];
 	}
 	else if(bcR == 3)
 	{
@@ -249,6 +249,134 @@ void Euler1d::apply_boundary_conditions()
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 	
+void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, std::vector<std::vector<double>>& ur)
+{
+	if(bcL == 0)
+	{
+		// homogeneous Dirichlet - wall
+		ul[0][0] = ur[0][0];
+		ul[0][1] = -ur[0][1];
+		ul[0][2] = ur[0][2];
+	}
+	else if(bcL == 1)
+	{
+		double M_in, c_in, v_in, p_in;
+		v_in = ul[0][1]/ul[0][0];
+		p_in = (g-1.0)*(ul[0][2] - 0.5*ul[0][0]*v_in*v_in);
+		c_in = sqrt(g*p_in/ul[0][0]);
+		M_in = v_in/c_in;
+
+		if(M_in >= 1.0)
+		{
+			// supersonic inflow
+			// get conserved variables from pt, Tt and M
+			//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+			double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
+			double c = sqrt(g*R*T);
+			double v = bcvalL[2]*c;
+			double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
+			double rho = p/(R*T);
+			double E = p/(g-1.0) + 0.5*rho*v*v;
+			/*u[0][0] = 2*rho - u[1][0];
+			u[0][1] = 2*rho*v - u[1][1];
+			u[0][2] = 2*E - u[1][2];*/
+			ul[0][0] = rho;
+			ul[0][1] = rho*v;
+			ul[0][2] = E;
+		}
+		else if(M_in >= 0)
+		{
+			// subsonic inflow
+			// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
+			double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
+			std::vector<double> uold0 = ul[0];
+			vold = uold0[1]/uold0[0];
+			pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
+			cold = sqrt( g*pold/uold0[0] );
+			vold1 = ur[0][1]/ur[0][0];
+			pold1 = (g-1)*(ur[0][2] - 0.5*ur[0][1]*ur[0][1]/ur[0][0]);
+			cold1 = sqrt( g*pold1/ur[0][0] );
+
+			astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+			dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/astar, 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/astar;
+
+			//// CHECK
+			dt0 = cfl*dx[0]/(fabs(vold)+cold);
+			////
+
+			lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
+			du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
+
+			v = vold + du;
+			T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/astar);
+			p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
+			ul[0][0] = p/(R*T);
+			ul[0][1] = ul[0][0]*v;
+			ul[0][2] = p/(g-1.0) + 0.5*ul[0][0]*v*v;
+
+			/*c = sqrt(g*p/u[0][0]);
+			M = v/c;
+			std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;*/
+		}
+		else
+			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
+	}
+	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+
+	if(bcR == 0)
+	{
+		ur[N][0] = ul[N][0];
+		ur[N][1] = -ul[N][1];
+		ur[N][2] = ul[N][2];
+	}
+	else if(bcR == 3)
+	{
+		// outflow
+		double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
+		std::vector<double> urold = ur[N];
+
+		vold = urold[1]/urold[0];
+		pold = (g-1.0)*(urold[2]-0.5*urold[0]*vold*vold);
+		cold = sqrt(g*pold/urold[0]);
+		vold1 = ul[N][1]/ul[N][0];
+		pold1 = (g-1.0)*(ul[N][2]-0.5*ul[N][0]*vold1*vold1);
+		cold1 = sqrt(g*pold1/ul[N][0]);
+
+		///// CHECK
+		dt0 = cfl*dx[N+1]/(fabs(vold)+cold);
+		/////
+
+		l1 = (vold+vold1)*0.5*dt0/dx[N+1];
+		l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
+		l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
+
+		r1 = -l1*( urold[0] - ul[N][0] - 1.0/(cold*cold)*(pold - pold1));
+		r2 = -l2*( pold - pold1 + urold[0]*cold*(vold - vold1));
+		r3 = -l3*( pold - pold1 - urold[0]*cold*(vold - vold1));
+		Mold = (vold+vold1)/(cold+cold1);
+
+		// check whether supersonic or subsonic
+		if(Mold > 1)
+			dp = 0.5*(r2+r3);
+		else
+			dp = 0;
+
+		drho = r1 + dp/(cold*cold);
+		dv = (r2-dp)/(urold[0]*cold);
+
+		ur[N][0] += drho;
+		ur[N][1] = ur[N][0]*(vold + dv);
+
+		if(Mold > 1)
+			p = pold + dp;
+		else
+			p = bcvalR[0];
+
+		ur[N][2] = p/(g-1.0) + 0.5*ur[N][0]*(vold+dv)*(vold+dv);
+	}
+	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+}
+
 void Euler1d::postprocess(std::string outfilename)
 {
 	std::ofstream ofile(outfilename);

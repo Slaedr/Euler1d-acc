@@ -46,3 +46,26 @@ MUSCLReconstruction::~MUSCLReconstruction()
 {
 	delete lim;
 }
+
+MUSCLReconstruction::compute_face_values()
+{
+	// iterate over interior face
+	int i, j, k;
+	for(i = 1; i < N; i++)
+	{
+		// get deltas
+		for(j = 0; j < NVARS; j++)
+		{
+			delminus[j] = 2.0*dudx[i][j]*(x[i+1]-x[i]);
+			delplus[j] = 2.0*dudx[i+1][j]*(x[i+1]-x[i]);
+
+			sminus = lim->limiter_function(delminus, u[i+1][j]-u[i][j]);
+			splus = lim->limiter_function(delplus, u[i+1][j]-u[i][j]);
+
+			uleft[i][j] = u[i][j] + sminus/4.0*( (1-k*sminus)*delminus + (1+k*sminus)*(u[i+1][j]-u[i][j]) );
+			uright[i][j] = u[i+1][j] - splus/4.0*( (1-k*splus)*delplus + (1+k*splus)*(u[i+1][j]-u[i][j]) );
+		}
+	}
+
+	// TODO: get uright at 0 and uleft at N
+}

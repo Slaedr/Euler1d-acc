@@ -60,7 +60,11 @@ public:
 
 	void compute_source_term();
 
+	/// Find new ghost cell values
 	void apply_boundary_conditions();
+	
+	/// Find new values of boundary face external states
+	void apply_boundary_conditions(std::vector<std::vector<double>>& uval, std::vector<std::vector<double>>& uval);
 
 	void postprocess(std::string outfilename);
 };
