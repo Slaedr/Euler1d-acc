@@ -51,8 +51,6 @@ class MUSCLReconstruction : public FaceReconstruction
 {
 	double k;											///< Controls order of reconstruction; people generally use 1/3
 	const SlopeLimiter* lim;							///< Slope limiter to use
-	std::vector<double> delminus;
-	std::vector<double> delplus;
 pubic:
 	MUSCLReconstruction(const int _N, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
 			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);

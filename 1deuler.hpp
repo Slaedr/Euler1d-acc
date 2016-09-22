@@ -34,10 +34,11 @@ protected:
 	InviscidFlux* flux;							///< Inviscid flux computation context
 	SlopeReconstruction* cslope;				///< Slope reconstruction context
 	FaceReconstruction* rec;					///< Context responsible for computation of face values of flow variables from their cell-centred values
-	double cfl;									///< CFL number			
+	double cfl;									///< CFL number
 
 public:
-	Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double CFL);
+	Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double cfl, 
+			std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter);
 
 	virtual ~Euler1d();
 

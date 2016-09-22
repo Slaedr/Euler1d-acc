@@ -1,11 +1,15 @@
 #include "1deuler.hpp"
 
-Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, double CFL)
+Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double CFL, 
+		std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter)
 	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), cfl(CFL)
 {
 	x.resize(N+2);
 	dx.resize(N+2);
 	u.resize(N+2);
+	uleft.resize(N+1);
+	uright.resize(N+1);
+	dudx.resize(N+2);
 	res.resize(N+2);
 	A.resize(N+2);
 	vol.resize(N+2);
@@ -14,7 +18,13 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	for(int i = 0; i < N+2; i++)
 	{
 		u[i].resize(NVARS);
+		dudx[i].resize(NVARS);
 		res[i].resize(NVARS);
+	}
+	for(int i = 0; i < N+1; i++)
+	{
+		uleft[i].resize(NVARS);
+		uright[i].resize(NVARS);
 	}
 
 	if(inviscid_flux == "vanleer")
@@ -27,11 +37,26 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		flux = new LocalLaxFriedrichsFlux();
 		std::cout << "Euler1d: Using local Lax-Friedrichs numerical flux.\n";
 	}
+
+	if(slope_scheme == "none")
+	{
+		cslope = new TrivialSlopeReconstruction(N,u,dudx);
+		std::cout << "Euler1d: No slope reconstruction to be used.\n";
+	}
+	else
+	{
+		cslope = new LeastSquaresReconstruction(N,u,dudx);
+		std::cout << "Euler1d: Least-squares slope reconstruction will be used.\n";
+	}
+
+	rec = new MUSCLReconstruction(N,u,dudx,uleft,uright,limiter,k);
 }
 
 Euler1d::~Euler1d()
 {
 	delete flux;
+	delete cslope;
+	delete rec;
 }
 
 void Euler1d::generate_mesh(int type, const std::vector<double>& pointlist)
@@ -261,62 +286,51 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 	else if(bcL == 1)
 	{
 		double M_in, c_in, v_in, p_in;
-		v_in = ul[0][1]/ul[0][0];
-		p_in = (g-1.0)*(ul[0][2] - 0.5*ul[0][0]*v_in*v_in);
-		c_in = sqrt(g*p_in/ul[0][0]);
+		v_in = ur[0][1]/ur[0][0];
+		p_in = (g-1.0)*(ur[0][2] - 0.5*ur[0][0]*v_in*v_in);
+		c_in = sqrt(g*p_in/ur[0][0]);
 		M_in = v_in/c_in;
+		
+		double M_ex, c_ex, v_ex, p_ex;
+		v_ex = ul[0][1]/ul[0][0];
+		p_ex = (g-1.0)*(ul[0][2] - 0.5*ul[0][0]*v_ex*v_ex);
+		c_ex = sqrt(g*p_ex/ul[0][0]);
+		M_ex = v_ex/c_ex;
 
-		if(M_in >= 1.0)
+		double M_eff = (M_in+M_ex)/2.0;
+		
+		// get fluid state from presribed free-stream conditions
+		double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
+		double c = sqrt(g*R*T);
+		double v = bcvalL[2]*c;
+		double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
+		double rho = p/(R*T);
+		double E = p/(g-1.0) + 0.5*rho*v*v;
+
+		if(M_eff >= 1.0)
 		{
-			// supersonic inflow
-			// get conserved variables from pt, Tt and M
-			//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
-			double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
-			double c = sqrt(g*R*T);
-			double v = bcvalL[2]*c;
-			double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
-			double rho = p/(R*T);
-			double E = p/(g-1.0) + 0.5*rho*v*v;
-			/*u[0][0] = 2*rho - u[1][0];
-			u[0][1] = 2*rho*v - u[1][1];
-			u[0][2] = 2*E - u[1][2];*/
+			/// supersonic inflow
+			/// get conserved variables from prescribed pt, Tt and M
 			ul[0][0] = rho;
 			ul[0][1] = rho*v;
 			ul[0][2] = E;
 		}
-		else if(M_in >= 0)
+		else if(M_eff >= 0)
 		{
-			// subsonic inflow
-			// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
-			double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
-			std::vector<double> uold0 = ul[0];
-			vold = uold0[1]/uold0[0];
-			pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
-			cold = sqrt( g*pold/uold0[0] );
-			vold1 = ur[0][1]/ur[0][0];
-			pold1 = (g-1)*(ur[0][2] - 0.5*ur[0][1]*ur[0][1]/ur[0][0]);
-			cold1 = sqrt( g*pold1/ur[0][0] );
-
-			astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
-			dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/astar, 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/astar;
-
-			//// CHECK
-			dt0 = cfl*dx[0]/(fabs(vold)+cold);
-			////
-
-			lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
-			du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
-
-			v = vold + du;
-			T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/astar);
-			p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
-			ul[0][0] = p/(R*T);
-			ul[0][1] = ul[0][0]*v;
-			ul[0][2] = p/(g-1.0) + 0.5*ul[0][0]*v*v;
-
-			/*c = sqrt(g*p/u[0][0]);
-			M = v/c;
-			std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;*/
+			/// Subsonic inflow
+			/** Get Riemann invarients corresponding to eigenvalues u-c, u and u+c resp.
+			 * Take R1 from interior, and R2 and R3 from free stream
+			 */
+			double R1, R2, R3, vg, cg, pg;
+			R1 = v_in - 2.0*c_in/(g-1.0);
+			R2 = p/pow(rho,g);
+			R3 = v + 2.0*c/(g-1.0);
+			vg = (R3+R1)*0.5;
+			cg = (R3-R1)*(g-1.0)/4.0;
+			ul[0][0] = pow(cg*cg/(g*R2), 1.0/(g-1.0));
+			pg = ul[0][0]*cg*cg/g;
+			ul[0][1] = ul[0][0]*vg;
+			ul[0][2] = pg/(g-1.0) + 0.5*u[0][0]*vg*vg;
 		}
 		else
 			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
