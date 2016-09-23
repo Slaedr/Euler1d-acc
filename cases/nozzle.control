@@ -14,10 +14,10 @@ steady
 2117.0 531.2 0.2
 -right-boundary-values(P)
 1270.2 0 0
--inviscid-flux-scheme
-vanleer
 -CFL
 0.1
+-inviscid-flux-scheme
+vanleer
 -Tolerance
 1e-9
 -Max-iterations

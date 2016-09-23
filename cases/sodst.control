@@ -1,3 +1,5 @@
+-simulation-type
+unsteady
 -output-file
 ../cases/sodst.dat
 -number-of-cells
@@ -12,10 +14,16 @@
 0 0 0
 -right-boundary-values
 0 0 0
--inviscid-flux-scheme
-llf
 -CFL
 0.25
+-inviscid-flux-scheme
+llf
+-slope-reconstruction-scheme
+none
+-face-reconstruction-scheme
+MUSCL
+-limiter
+none
 -Final-physical-time
 0.2
 -temporal-order-of-accuracy
@@ -23,5 +31,4 @@ llf
 -area-function-setup-type
 0
 -area-function-file
-
 

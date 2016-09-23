@@ -23,18 +23,30 @@ void TrivialSlopeReconstruction::compute_slopes()
 		for(int j = 0; j < NVARS; j++)
 			dudx[i][j] = 0;
 }
+
+LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: SlopeReconstruction(_N, _u, _dudx)
+{ }
+
+void LeastSquaresReconstruction::compute_slopes()
+{
+	// TODO: implement least-squares reconstruction
+	for(int i = 1; i <= N; i++)
+		for(int j = 0; j < NVARS; j++)
+			dudx[i][j] = 0;
+}
 	
-FaceReconstruction(const int _N, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& _uleft,
-			std::vector<std::vector<double>>& _uright, std::string _limiter)
-	: N(_N), u(_u), dudx(_dudx), uleft(_uleft), uright(_uright), limiter(_limiter)
+FaceReconstruction::FaceReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
+		std::vector<std::vector<double>>& _uleft, std::vector<std::vector<double>>& _uright, std::string _limiter)
+	: N(_N), x(_x), u(_u), dudx(_dudx), uleft(_uleft), uright(_uright), limiter(_limiter)
 { }
 	
 FaceReconstruction::~FaceReconstruction()
 { }
 
-MUSCLReconstruction(const int _N, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft, 
-		std::vector<std::vector<double>>& uright, std::string _limiter, double _k)
-	: FaceReconstruction(_N, _u, _dudx, uleft, uright, _limiter)
+MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
+		std::vector<std::vector<double>>& uleft, std::vector<std::vector<double>>& uright, std::string _limiter, double _k)
+	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright, _limiter)
 {
 	if(limiter == "vanalbada")
 		lim = new VanAlbadaLimiter(SMALL_NUMBER);
@@ -50,7 +62,7 @@ MUSCLReconstruction::~MUSCLReconstruction()
 	delete lim;
 }
 
-MUSCLReconstruction::compute_face_values()
+void MUSCLReconstruction::compute_face_values()
 {
 	// iterate over interior face
 	int i, j, k;
@@ -68,6 +80,11 @@ MUSCLReconstruction::compute_face_values()
 
 			uleft[i][j] = u[i][j] + sminus/4.0*( (1-k*sminus)*delminus + (1+k*sminus)*(u[i+1][j]-u[i][j]) );
 			uright[i][j] = u[i+1][j] - splus/4.0*( (1-k*splus)*delplus + (1+k*splus)*(u[i+1][j]-u[i][j]) );
+
+			if(fabs(dudx[i][j]) < 1e-15)
+				uleft[i][j] = u[i][j];
+			if(fabs(dudx[i+1][j]) < 1e-15)
+				uright[i][j] = u[i+1][j];
 		}
 	}
 
@@ -78,8 +95,14 @@ MUSCLReconstruction::compute_face_values()
 		splus = lim->limiter_function(delplus, u[1][j]-u[0][j]);
 		uright[0][j] = u[1][j] - splus/4.0*( (1-k*splus)*delplus + (1+k*splus)*(u[1][j]-u[0][j]) );
 
+		if(fabs(dudx[1][j]) < 1e-15)
+			uright[0][j] = u[1][j];
+
 		delminus = 2*dudx[N][j]*(x[N+1]-x[N]);
-		sminus = lim->limiter_function(delminus, u[N+1]-u[N]);
+		sminus = lim->limiter_function(delminus, u[N+1][j]-u[N][j]);
 		uleft[N][j] = u[N][j] + sminus/4.0*( (1-k*sminus)*delminus + (1+k*sminus)*(u[N+1][j]-u[N][j]) );
+			
+		if(fabs(dudx[N][j]) < 1e-15)
+			uleft[N][j] = u[N][j];
 	}
 }

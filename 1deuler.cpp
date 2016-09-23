@@ -12,6 +12,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	dudx.resize(N+2);
 	res.resize(N+2);
 	A.resize(N+2);
+	Af.resize(N+1);
 	vol.resize(N+2);
 	nodes.resize(N+1);
 
@@ -49,7 +50,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		std::cout << "Euler1d: Least-squares slope reconstruction will be used.\n";
 	}
 
-	rec = new MUSCLReconstruction(N,u,dudx,uleft,uright,limiter,k);
+	rec = new MUSCLReconstruction(N,x,u,dudx,uleft,uright,limiter,muscl_k);
 }
 
 Euler1d::~Euler1d()
@@ -111,6 +112,11 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 		A[N+1] = A[N];
 	}
 
+	/** Get interface areas as inverse-distance weighted averages of cell-centered areas so that they are exact for linear profiles.
+	 */
+	for(int i = 0; i <= N; i++)
+		Af[i] = (A[i]*dx[i+1] + A[i+1]*dx[i])/(dx[i]+dx[i+1]);
+
 	for(int i = 0; i < N+2; i++)
 	{
 		vol[i] = dx[i]*A[i];
@@ -120,7 +126,6 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 void Euler1d::compute_inviscid_fluxes()
 {
 	std::vector<std::vector<double>> fluxes(N+1);
-	double farea;
 
 	for(int i = 0; i < N+1; i++)
 		fluxes[i].resize(NVARS);
@@ -128,15 +133,12 @@ void Euler1d::compute_inviscid_fluxes()
 	// iterate over interfaces
 	for(int i = 0; i < N+1; i++)
 	{
-		flux->compute_flux(u[i], u[i+1], fluxes[i]);
-
-		// get cross-sectional area at the ith section as average of cell-centered values
-		farea = (A[i] + A[i+1])/2.0;
+		flux->compute_flux(uleft[i], uright[i], fluxes[i]);
 
 		// update residual
 		for(int j = 0; j < NVARS; j++)
 		{
-			fluxes[i][j] *= farea;
+			fluxes[i][j] *= Af[i];
 			res[i][j] -= fluxes[i][j];
 			res[i+1][j] += fluxes[i][j];
 		}
@@ -150,7 +152,7 @@ void Euler1d::compute_source_term()
 	for(int i = 1; i <= N; i++)
 	{
 		p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
-		res[i][1] += p*(A[i+1] - A[i-1])*0.5;
+		res[i][1] += p*(Af[i] - Af[i-1]);
 	}
 }
 
@@ -346,68 +348,44 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 	else if(bcR == 3)
 	{
 		// outflow
-		double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
-		std::vector<double> urold = ur[N];
+		double R1, R2, R3, cold0, pold0, vold0, cold1, pold1, vold, vold1, Minf, pinf, Tinf, rhoinf, vinf, cinf, v, c, p, Meff;
+		pinf = bcvalR[0]; Tinf = bcvalR[1]; Minf = bcvalR[2];
+		rhoinf = pinf/(R*Tinf);
+		cinf = sqrt(g*pinf/rhoinf);
+		vinf = Minf*cinf;
 
-		vold = urold[1]/urold[0];
-		pold = (g-1.0)*(urold[2]-0.5*urold[0]*vold*vold);
-		cold = sqrt(g*pold/urold[0]);
 		vold1 = ul[N][1]/ul[N][0];
 		pold1 = (g-1.0)*(ul[N][2]-0.5*ul[N][0]*vold1*vold1);
 		cold1 = sqrt(g*pold1/ul[N][0]);
 
-		///// CHECK
-		dt0 = cfl*dx[N+1]/(fabs(vold)+cold);
-		/////
+		// previous values at the ghost point we want to set
+		vold0 = ur[N][1]/ur[N][0];
+		pold0 = (g-1.0)*(ur[N][2]-0.5*ur[N][0]*vold0*vold0);
+		cold0 = sqrt(g*pold0/ur[N][0]);
 
-		l1 = (vold+vold1)*0.5*dt0/dx[N+1];
-		l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
-		l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
-
-		r1 = -l1*( urold[0] - ul[N][0] - 1.0/(cold*cold)*(pold - pold1));
-		r2 = -l2*( pold - pold1 + urold[0]*cold*(vold - vold1));
-		r3 = -l3*( pold - pold1 - urold[0]*cold*(vold - vold1));
-		Mold = (vold+vold1)/(cold+cold1);
-
-		// check whether supersonic or subsonic
-		if(Mold > 1)
-			dp = 0.5*(r2+r3);
+		Meff = 0.5*(vold1/cold1 + vold0/cold0);
+		
+		if(Meff < 1.0)
+			R1 = vinf - 2*cinf/(g-1.0);
 		else
-			dp = 0;
+			R1 = vold1 - 2*cold1/(g-1.0);
 
-		drho = r1 + dp/(cold*cold);
-		dv = (r2-dp)/(urold[0]*cold);
+		R2 = pold1/pow(ul[N][0],g);
+		R3 = vold1 + 2*cold1/(g-1.0);
 
-		ur[N][0] += drho;
-		ur[N][1] = ur[N][0]*(vold + dv);
-
-		if(Mold > 1)
-			p = pold + dp;
-		else
-			p = bcvalR[0];
-
-		ur[N][2] = p/(g-1.0) + 0.5*ur[N][0]*(vold+dv)*(vold+dv);
+		v = 0.5*(R3+R1); c = 0.25*(g-1.0)*(R3-R1);
+		ur[N][0] = pow(c*c/(g*R2), 1.0/(g-1.0));
+		p = ur[N][0]*c*c/g;
+		ur[N][1] = ur[N][0]*v;
+		ur[N][2] = p/(g-1.0) + 0.5*ur[N][0]*v*v;
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 
-void Euler1d::postprocess(std::string outfilename)
-{
-	std::ofstream ofile(outfilename);
-	double pressure, mach, c;
-	for(int i = 1; i < N+1; i++)
-	{
-		pressure = (g-1)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
-		c = sqrt(g*pressure/u[i][0]);
-		mach = (u[i][1]/u[i][0])/c;
-		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure/bcvalL[0] << " " << u[i][1] << " " << c << '\n';
-	}
-	ofile.close();
-}
 
-Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscid_flux, 
-		double CFL, double f_time, int temporal_order)
-	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscid_flux, CFL), ftime(f_time), temporalOrder(temporalOrder)
+Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs,
+		double CFL, std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double f_time, int temporal_order)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, CFL, inviscid_flux, slope_scheme, face_extrap_scheme, limiter), ftime(f_time), temporalOrder(temporalOrder)
 {
 	maxWaveSpeed.resize(N+2);
 }
@@ -456,6 +434,10 @@ void Euler1dExplicit::run()
 			}
 		}
 
+		cslope->compute_slopes();
+		rec->compute_face_values();
+		apply_boundary_conditions(uleft, uright);
+
 		compute_inviscid_fluxes();
 		compute_source_term();
 
@@ -494,10 +476,24 @@ void Euler1dExplicit::run()
 	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << ", final time = " << time << std::endl;
 }
 
+void Euler1dExplicit::postprocess(std::string outfilename)
+{
+	std::ofstream ofile(outfilename);
+	double pressure, mach, c;
+	for(int i = 1; i < N+1; i++)
+	{
+		pressure = (g-1)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
+		c = sqrt(g*pressure/u[i][0]);
+		mach = (u[i][1]/u[i][0])/c;
+		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure << " " << u[i][1] << " " << c << '\n';
+	}
+	ofile.close();
+}
+
 
 Euler1dSteadyExplicit::Euler1dSteadyExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, 
-		std::string inviscidFlux, double CFL, double toler, int max_iter)
-	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, inviscidFlux, CFL), tol(toler), maxiter(max_iter)
+		double CFL, std::string inviscidFlux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double toler, int max_iter)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, CFL, inviscidFlux, slope_scheme, face_extrap_scheme, limiter), tol(toler), maxiter(max_iter)
 {
 	maxWaveSpeed.resize(N+2);
 }
@@ -545,20 +541,6 @@ void Euler1dSteadyExplicit::run()
 		u[i][1] = u[i][0]*vex;
 		u[i][2] = pex/(g-1.0) + 0.5*u[i][0]*vex*vex;
 	}
-	
-	// Assume initial velocity is zero throughout
-	// All cells but the last are initially according to the left BCs.`
-	/*for(int i = 0; i < N+1; i++)
-	{
-		u[i][0] = bcvalL[0]/(R*bcvalL[1]);		// density = p/RT
-		u[i][1] = 0;
-		u[i][2] = bcvalL[0]/(g-1.0);			// E = p/(g-1)
-	}
-
-	// set values for last cell from right BCs
-	u[N+1][0] = bcvalR[0]/(R*bcvalL[1]);
-	u[N+1][2] = bcvalR[0]/(g-1.0);
-	u[N+1][1] = 0;*/
 
 	// Start time loop
 
@@ -613,4 +595,18 @@ void Euler1dSteadyExplicit::run()
 	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << std::endl;
 	if(step == maxiter)
 		std::cout << "Euler1dExplicit: run(): Not converged!" << std::endl;
+}
+
+void Euler1dSteadyExplicit::postprocess(std::string outfilename)
+{
+	std::ofstream ofile(outfilename);
+	double pressure, mach, c;
+	for(int i = 1; i < N+1; i++)
+	{
+		pressure = (g-1)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
+		c = sqrt(g*pressure/u[i][0]);
+		mach = (u[i][1]/u[i][0])/c;
+		ofile << x[i] << " " << u[i][0] << " " << mach << " " << pressure/bcvalL[0] << " " << u[i][1] << " " << c << '\n';
+	}
+	ofile.close();
 }

@@ -11,6 +11,10 @@
 #include "inviscidflux.hpp"
 #endif
 
+#ifndef __RECONSTRUCTION_H
+#include "reconstruction.hpp"
+#endif
+
 /// Base class for Euler solution processes
 class Euler1d
 {
@@ -22,6 +26,7 @@ protected:
 	std::vector<double> nodes;					///< Mesh nodes
 	double domlen;								///< Physical length of the domain
 	std::vector<double> A;						///< Cross-sectional areas at cell centers
+	std::vector<double> Af;						///< Cross-sectional areas at interfaces
 	std::vector<std::vector<double>> u;			///< Unknowns - u[i][0] is density of cell i and so on
 	std::vector<std::vector<double>> uleft;		///< Left state of each face
 	std::vector<std::vector<double>> uright;	///< Right state at each face
@@ -65,9 +70,9 @@ public:
 	void apply_boundary_conditions();
 	
 	/// Find new values of boundary face external states
-	void apply_boundary_conditions(std::vector<std::vector<double>>& uval, std::vector<std::vector<double>>& uval);
-
-	void postprocess(std::string outfilename);
+	/** Note that interior states at boundary faces should already be computed.
+	 */
+	void apply_boundary_conditions(std::vector<std::vector<double>>& ul, std::vector<std::vector<double>>& ur);
 };
 
 /// Explicit RK solver for time-dependent 1D Euler equations
@@ -78,10 +83,12 @@ class Euler1dExplicit : public Euler1d
 	int temporalOrder;							///< desired temporal order of accuracy
 
 public:
-	Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscidFlux, double cfl, 
-			double fTime, int temporal_order);
+	Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double cfl, std::string inviscidFlux,
+			std::string slope_scheme, std::string face_rec_scheme, std::string limiter, double fTime, int temporal_order);
 
 	void run();
+	
+	void postprocess(std::string outfilename);
 };
 
 /// Explicit RK solver for steady-state 1D Euler
@@ -92,10 +99,12 @@ class Euler1dSteadyExplicit : public Euler1d
 	std::vector<double> maxWaveSpeed;			///< for computing time steps
 
 public:
-	Euler1dSteadyExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, std::string inviscidFlux, double cfl, 
-			double toler, int max_iter);
+	Euler1dSteadyExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double cfl, std::string inviscidFlux,
+			std::string slope_scheme, std::string face_rec_scheme, std::string limiter, double toler, int max_iter);
 
 	void run();
+	
+	void postprocess(std::string outfilename);
 };
 
 #endif

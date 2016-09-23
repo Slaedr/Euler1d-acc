@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 
 	int leftbc, rightbc, temporal_order, N, areatype, maxiter;
 	std::vector<double> leftbv(NVARS,0), rightbv(NVARS,0), areas;
-	std::string inv_flux, areafile, outputfile, simtype, dum;
+	std::string inv_flux, areafile, outputfile, simtype, slope_scheme, rec_scheme, limiter, dum;
 	double cfl, f_time, L, tol;
 
 	conf >> dum; conf >> simtype;
@@ -30,20 +30,34 @@ int main(int argc, char* argv[])
 		conf >> dum;
 		for(int i = 0; i < NVARS; i++)
 			conf >> rightbv[i];
-		conf >> dum; conf >> inv_flux;
 		conf >> dum; conf >> cfl;
+		conf >> dum; conf >> inv_flux;
+		conf >> dum; conf >> slope_scheme;
+		conf >> dum; conf >> rec_scheme;
+		conf >> dum; conf >> limiter;
 		conf >> dum; conf >> f_time;
 		conf >> dum; conf >> temporal_order;
 		conf >> dum; conf >> areatype;
-		if(areatype != 0)
+		if(areatype == 1)
 		{
+			areas.resize(N);
 			conf >> dum; conf >> areafile;
+			std::ifstream areaf(areafile);
+			for(int i = 0; i < N; i++)
+			{
+				areaf >> areas[i];
+			}
+			areaf.close();
+		}
+		else
+		{
+			areas.resize(1);
+			areas[0] = 1.0;
 		}
 	
 		std::vector<double> plist;
-		areas[0] = 1.0;
 
-		Euler1dExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, inv_flux, cfl, f_time, temporal_order);
+		Euler1dExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, cfl, inv_flux, slope_scheme, rec_scheme, limiter, f_time, temporal_order);
 		prob.generate_mesh(0,plist);
 		prob.set_area(0,areas);
 		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << f_time << " " << temporal_order << std::endl;
@@ -65,8 +79,11 @@ int main(int argc, char* argv[])
 		conf >> dum;
 		for(int i = 0; i < NVARS; i++)
 			conf >> rightbv[i];
-		conf >> dum; conf >> inv_flux;
 		conf >> dum; conf >> cfl;
+		conf >> dum; conf >> inv_flux;
+		conf >> dum; conf >> slope_scheme;
+		conf >> dum; conf >> rec_scheme;
+		conf >> dum; conf >> limiter;
 		conf >> dum; conf >> tol;
 		conf >> dum; conf >> maxiter;
 		conf >> dum; conf >> areatype;
@@ -84,7 +101,7 @@ int main(int argc, char* argv[])
 		
 		std::vector<double> plist;
 
-		Euler1dSteadyExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, inv_flux, cfl, tol, maxiter);
+		Euler1dSteadyExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, cfl, inv_flux, slope_scheme, rec_scheme, limiter, tol, maxiter);
 		prob.generate_mesh(0,plist);
 		prob.set_area(areatype,areas);
 		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << tol << " " << maxiter << std::endl;

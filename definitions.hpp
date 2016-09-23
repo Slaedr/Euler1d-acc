@@ -23,6 +23,9 @@ const double R = 1716;
 
 const double Cv = R/(g-1.0);
 
+/// Constant for MUSCL reconstruction
+const double muscl_k = 1.0/3.0;
+
 void matprint(const std::vector<std::vector<double>>& mat);
 
 #endif

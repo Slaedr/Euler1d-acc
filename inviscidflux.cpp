@@ -2,7 +2,7 @@
 
 void LocalLaxFriedrichsFlux::compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux)
 {
-	double eps = 0.25;
+	double eps = 0.5;
 
 	double pl = (g-1) * (uleft[2]-0.5*uleft[1]*uleft[1]/uleft[0]);
 	double pr = (g-1) * (uright[2]-0.5*uright[1]*uright[1]/uright[0]);
