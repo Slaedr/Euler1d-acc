@@ -6,15 +6,15 @@
 
 #include "reconstruction.hpp"
 
-SlopeReconstruction::SlopeReconstruction(const int _N, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
-	: N(_N), u(_u), dudx(_dudx)
+SlopeReconstruction::SlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: N(_N), x(_x), u(_u), dudx(_dudx)
 { }
 	
 SlopeReconstruction::~SlopeReconstruction()
 { }
 
-TrivialSlopeReconstruction::TrivialSlopeReconstruction(const int _N, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
-	: SlopeReconstruction(_N, _u, _dudx)
+TrivialSlopeReconstruction::TrivialSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: SlopeReconstruction(_N, _x, _u, _dudx)
 { }
 
 void TrivialSlopeReconstruction::compute_slopes()
@@ -24,16 +24,21 @@ void TrivialSlopeReconstruction::compute_slopes()
 			dudx[i][j] = 0;
 }
 
-LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
-	: SlopeReconstruction(_N, _u, _dudx)
+LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: SlopeReconstruction(_N, _x, _u, _dudx)
 { }
 
 void LeastSquaresReconstruction::compute_slopes()
 {
-	// TODO: implement least-squares reconstruction
+	// implement least-squares reconstruction
+	double num, denom;
 	for(int i = 1; i <= N; i++)
 		for(int j = 0; j < NVARS; j++)
-			dudx[i][j] = 0;
+		{
+			num = (u[i-1][j]-u[i][j])*(x[i-1]-x[i]) + u[i+1][j]-u[i][j]*(x[i+1]-x[i]);
+			denom = (x[i-1]-x[i])*(x[i-1]-x[i]) + (x[i+1]-x[i])*(x[i+1]-x[i]);
+			dudx[i][j] = num/denom;
+		}
 }
 	
 FaceReconstruction::FaceReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 

@@ -15,9 +15,9 @@ unsteady
 -right-boundary-values
 0 0 0
 -CFL
-0.25
+0.1
 -inviscid-flux-scheme
-llf
+vanleer
 -slope-reconstruction-scheme
 none
 -face-reconstruction-scheme

@@ -41,12 +41,12 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 
 	if(slope_scheme == "none")
 	{
-		cslope = new TrivialSlopeReconstruction(N,u,dudx);
+		cslope = new TrivialSlopeReconstruction(N,x,u,dudx);
 		std::cout << "Euler1d: No slope reconstruction to be used.\n";
 	}
 	else
 	{
-		cslope = new LeastSquaresReconstruction(N,u,dudx);
+		cslope = new LeastSquaresReconstruction(N,x,u,dudx);
 		std::cout << "Euler1d: Least-squares slope reconstruction will be used.\n";
 	}
 
