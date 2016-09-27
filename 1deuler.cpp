@@ -384,15 +384,26 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 
 
 Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs,
-		double CFL, std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double f_time, int temporal_order)
-	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, CFL, inviscid_flux, slope_scheme, face_extrap_scheme, limiter), ftime(f_time), temporalOrder(temporalOrder)
+		double CFL, std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double f_time, int temporal_order, std::string RKfile)
+	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, CFL, inviscid_flux, slope_scheme, face_extrap_scheme, limiter), ftime(f_time), temporalOrder(temporal_order)
 {
 	maxWaveSpeed.resize(N+2);
+	RKCoeffs.resize(temporalOrder);
+	for(int i = 0; i < temporalOrder; i++)
+		RKCoeffs[i].resize(3);
+
+	std::ifstream rkfile(RKfile);
+	for(int i = 0; i < temporalOrder; i++)
+		for(int j = 0; j < 3; j++)
+			rkfile >> RKCoeffs[i][j];
+	rkfile.close();
+
+	std::cout << "Euler1dExplicit: Using " << temporalOrder << "-stage TVD RK scheme; loaded coefficients.\n";
 }
 
 void Euler1dExplicit::run()
 {
-	int step;
+	int step = 0, istage;
 	double dt, time = 0;
 
 	// IC for Sod shock tube
@@ -411,16 +422,14 @@ void Euler1dExplicit::run()
 		}
 
 	std::vector<double> c(N+2);
-	std::vector<std::vector<double>> uold;
+	std::vector<std::vector<double>> uold, ustage;
 	uold.resize(N+2);
+	ustage.resize(N+2);
 	for(int i = 0; i < N+2; i++)
-		uold[i].resize(NVARS);
-	/*if(temporalOrder > 1)
 	{
-		uold[1].resize(N+2);
-		for(int i = 0; i < N+2; i++)
-			uold[1][i].resize(NVARS);
-	}*/
+		uold[i].resize(NVARS);
+		ustage[i].resize(NVARS);
+	}
 
 	while(time < ftime)
 	{
@@ -433,14 +442,7 @@ void Euler1dExplicit::run()
 				res[i][j] = 0;
 			}
 		}
-
-		cslope->compute_slopes();
-		rec->compute_face_values();
-		apply_boundary_conditions(uleft, uright);
-
-		compute_inviscid_fluxes();
-		compute_source_term();
-
+		
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
 		for(i = 1; i < N+1; i++)
@@ -458,13 +460,31 @@ void Euler1dExplicit::run()
 
 		dt = cfl*mws;
 
-		// RK step
-		for(i = 1; i < N+1; i++)
-			for(j = 0; j < NVARS; j++)
-				u[i][j] = uold[i][j] + dt/vol[i]*res[i][j];
+		for(istage = 0; istage < temporalOrder; istage++)
+		{
+			for(i = 0; i < N+2; i++)
+			{
+				for(j = 0; j < NVARS; j++)
+				{
+					ustage[i][j] = u[i][j];
+					res[i][j] = 0;
+				}
+			}
+			cslope->compute_slopes();
+			rec->compute_face_values();
+			apply_boundary_conditions(uleft, uright);
 
-		// apply BCs
-		apply_boundary_conditions();
+			compute_inviscid_fluxes();
+			compute_source_term();
+
+			// RK stage
+			for(i = 1; i < N+1; i++)
+				for(j = 0; j < NVARS; j++)
+					u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
+
+			// apply BCs
+			apply_boundary_conditions();
+		}
 
 		if(step % 10 == 0)
 			std::cout << "Euler1dExplicit: run(): Step " << step << " - Time = " << time << std::endl;
@@ -555,6 +575,10 @@ void Euler1dSteadyExplicit::run()
 				res[i][j] = 0;
 			}
 		}
+
+		cslope->compute_slopes();
+		rec->compute_face_values();
+		apply_boundary_conditions(uleft, uright);
 
 		compute_inviscid_fluxes();
 		compute_source_term();

@@ -81,10 +81,11 @@ class Euler1dExplicit : public Euler1d
 	double ftime;								///< Physical time for which to simulate
 	std::vector<double> maxWaveSpeed;			///< for computing time steps
 	int temporalOrder;							///< desired temporal order of accuracy
+	std::vector<std::vector<double>> RKCoeffs;	///< Low-storage multi-stage TVD RK coefficients
 
 public:
 	Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double cfl, std::string inviscidFlux,
-			std::string slope_scheme, std::string face_rec_scheme, std::string limiter, double fTime, int temporal_order);
+			std::string slope_scheme, std::string face_rec_scheme, std::string limiter, double fTime, int temporal_order, std::string RKfile);
 
 	void run();
 	

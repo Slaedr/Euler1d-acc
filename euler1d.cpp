@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 
 	int leftbc, rightbc, temporal_order, N, areatype, maxiter;
 	std::vector<double> leftbv(NVARS,0), rightbv(NVARS,0), areas;
-	std::string inv_flux, areafile, outputfile, simtype, slope_scheme, rec_scheme, limiter, dum;
+	std::string inv_flux, areafile, outputfile, simtype, slope_scheme, rec_scheme, limiter, rkfile, dum;
 	double cfl, f_time, L, tol;
 
 	conf >> dum; conf >> simtype;
@@ -37,6 +37,7 @@ int main(int argc, char* argv[])
 		conf >> dum; conf >> limiter;
 		conf >> dum; conf >> f_time;
 		conf >> dum; conf >> temporal_order;
+		conf >> dum; conf >> rkfile;
 		conf >> dum; conf >> areatype;
 		if(areatype == 1)
 		{
@@ -57,10 +58,11 @@ int main(int argc, char* argv[])
 	
 		std::vector<double> plist;
 
-		Euler1dExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, cfl, inv_flux, slope_scheme, rec_scheme, limiter, f_time, temporal_order);
+		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << f_time << " " << temporal_order << std::endl;
+
+		Euler1dExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, cfl, inv_flux, slope_scheme, rec_scheme, limiter, f_time, temporal_order, rkfile);
 		prob.generate_mesh(0,plist);
 		prob.set_area(0,areas);
-		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << f_time << " " << temporal_order << std::endl;
 
 		prob.run();
 
