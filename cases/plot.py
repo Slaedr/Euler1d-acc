@@ -16,7 +16,7 @@ n = data.shape[0]
 plt.plot(data[:,0],data[:,1],'o-', label="Density")
 plt.plot(data[:,0],data[:,2], 's-', label="Mach number")
 plt.plot(data[:,0],data[:,3], 'v-', label="Pressure")
-plt.axis((0,1,0.2,1.6))
+#plt.axis((0,1,0.2,1.6))
 plt.title(scheme)
 plt.xlabel("x")
 plt.ylabel(" ")

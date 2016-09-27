@@ -276,27 +276,27 @@ void Euler1d::apply_boundary_conditions()
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 	
-void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, std::vector<std::vector<double>>& ur)
+void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<double>& ur)
 {
 	if(bcL == 0)
 	{
 		// homogeneous Dirichlet - wall
-		ul[0][0] = ur[0][0];
-		ul[0][1] = -ur[0][1];
-		ul[0][2] = ur[0][2];
+		ul[0] = ur[0];
+		ul[1] = -ur[1];
+		ul[2] = ur[2];
 	}
 	else if(bcL == 1)
 	{
 		double M_in, c_in, v_in, p_in;
-		v_in = ur[0][1]/ur[0][0];
-		p_in = (g-1.0)*(ur[0][2] - 0.5*ur[0][0]*v_in*v_in);
-		c_in = sqrt(g*p_in/ur[0][0]);
+		v_in = ur[1]/ur[0];
+		p_in = (g-1.0)*(ur[2] - 0.5*ur[0]*v_in*v_in);
+		c_in = sqrt(g*p_in/ur[0]);
 		M_in = v_in/c_in;
 		
 		double M_ex, c_ex, v_ex, p_ex;
-		v_ex = ul[0][1]/ul[0][0];
-		p_ex = (g-1.0)*(ul[0][2] - 0.5*ul[0][0]*v_ex*v_ex);
-		c_ex = sqrt(g*p_ex/ul[0][0]);
+		v_ex = ul[1]/ul[0];
+		p_ex = (g-1.0)*(ul[2] - 0.5*ul[0]*v_ex*v_ex);
+		c_ex = sqrt(g*p_ex/ul[0]);
 		M_ex = v_ex/c_ex;
 
 		double M_eff = (M_in+M_ex)/2.0;
@@ -313,9 +313,9 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 		{
 			/// supersonic inflow
 			/// get conserved variables from prescribed pt, Tt and M
-			ul[0][0] = rho;
-			ul[0][1] = rho*v;
-			ul[0][2] = E;
+			ul[0] = rho;
+			ul[1] = rho*v;
+			ul[2] = E;
 		}
 		else if(M_eff >= 0)
 		{
@@ -329,10 +329,10 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 			R3 = v + 2.0*c/(g-1.0);
 			vg = (R3+R1)*0.5;
 			cg = (R3-R1)*(g-1.0)/4.0;
-			ul[0][0] = pow(cg*cg/(g*R2), 1.0/(g-1.0));
-			pg = ul[0][0]*cg*cg/g;
-			ul[0][1] = ul[0][0]*vg;
-			ul[0][2] = pg/(g-1.0) + 0.5*u[0][0]*vg*vg;
+			ul[0] = pow(cg*cg/(g*R2), 1.0/(g-1.0));
+			pg = ul[0]*cg*cg/g;
+			ul[1] = ul[0]*vg;
+			ul[2] = pg/(g-1.0) + 0.5*ul[0]*vg*vg;
 		}
 		else
 			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
@@ -341,9 +341,9 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 
 	if(bcR == 0)
 	{
-		ur[N][0] = ul[N][0];
-		ur[N][1] = -ul[N][1];
-		ur[N][2] = ul[N][2];
+		ur[0] = ul[0];
+		ur[1] = -ul[1];
+		ur[2] = ul[2];
 	}
 	else if(bcR == 3)
 	{
@@ -354,14 +354,14 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 		cinf = sqrt(g*pinf/rhoinf);
 		vinf = Minf*cinf;
 
-		vold1 = ul[N][1]/ul[N][0];
-		pold1 = (g-1.0)*(ul[N][2]-0.5*ul[N][0]*vold1*vold1);
-		cold1 = sqrt(g*pold1/ul[N][0]);
+		vold1 = ul[1]/ul[0];
+		pold1 = (g-1.0)*(ul[2]-0.5*ul[0]*vold1*vold1);
+		cold1 = sqrt(g*pold1/ul[0]);
 
 		// previous values at the ghost point we want to set
-		vold0 = ur[N][1]/ur[N][0];
-		pold0 = (g-1.0)*(ur[N][2]-0.5*ur[N][0]*vold0*vold0);
-		cold0 = sqrt(g*pold0/ur[N][0]);
+		vold0 = ur[1]/ur[0];
+		pold0 = (g-1.0)*(ur[2]-0.5*ur[0]*vold0*vold0);
+		cold0 = sqrt(g*pold0/ur[0]);
 
 		Meff = 0.5*(vold1/cold1 + vold0/cold0);
 		
@@ -370,14 +370,14 @@ void Euler1d::apply_boundary_conditions(std::vector<std::vector<double>>& ul, st
 		else
 			R1 = vold1 - 2*cold1/(g-1.0);
 
-		R2 = pold1/pow(ul[N][0],g);
+		R2 = pold1/pow(ul[0],g);
 		R3 = vold1 + 2*cold1/(g-1.0);
 
 		v = 0.5*(R3+R1); c = 0.25*(g-1.0)*(R3-R1);
-		ur[N][0] = pow(c*c/(g*R2), 1.0/(g-1.0));
-		p = ur[N][0]*c*c/g;
-		ur[N][1] = ur[N][0]*v;
-		ur[N][2] = p/(g-1.0) + 0.5*ur[N][0]*v*v;
+		ur[0] = pow(c*c/(g*R2), 1.0/(g-1.0));
+		p = ur[0]*c*c/g;
+		ur[1] = ur[0]*v;
+		ur[2] = p/(g-1.0) + 0.5*ur[0]*v*v;
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
@@ -472,7 +472,8 @@ void Euler1dExplicit::run()
 			}
 			cslope->compute_slopes();
 			rec->compute_face_values();
-			apply_boundary_conditions(uleft, uright);
+			apply_boundary_conditions(uleft[0], uright[0]);
+			apply_boundary_conditions(uleft[N], uright[N]);
 
 			compute_inviscid_fluxes();
 			compute_source_term();
@@ -483,7 +484,8 @@ void Euler1dExplicit::run()
 					u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
 
 			// apply BCs
-			apply_boundary_conditions();
+			apply_boundary_conditions(u[0], u[1]);
+			apply_boundary_conditions(u[N], u[N+1]);
 		}
 
 		if(step % 10 == 0)
@@ -539,7 +541,7 @@ void Euler1dSteadyExplicit::run()
 	double Tin = T_t/term;
 	double pin = p_t*pow(term, -g/(g-1.0));
 
-	double pex = bcvalR[0], cex, vex;
+	double pex = bcvalR[0], tex = bcvalR[1], Mex = bcvalR[2], cex, vex;
 
 	double cin;
 	
@@ -552,12 +554,12 @@ void Euler1dSteadyExplicit::run()
 		u[i][2] = pin/(g-1.0)+0.5*u[i][1]*M*cin;
 	}
 
-	// set rest of the cells according to exit conditions, assuming constant Mach number and temperature
+	// set rest of the cells according to exit conditions
 	for(int i = N+1; i <= N+1; i++)
 	{
-		u[i][0] = pex/(R*Tin);
+		u[i][0] = pex/(R*tex);
 		cex = sqrt(g*pex/u[i][0]);
-		vex = M*cex;
+		vex = Mex*cex;
 		u[i][1] = u[i][0]*vex;
 		u[i][2] = pex/(g-1.0) + 0.5*u[i][0]*vex*vex;
 	}
@@ -578,7 +580,8 @@ void Euler1dSteadyExplicit::run()
 
 		cslope->compute_slopes();
 		rec->compute_face_values();
-		apply_boundary_conditions(uleft, uright);
+		apply_boundary_conditions(uleft[0], uright[0]);
+		apply_boundary_conditions(uleft[N], uright[N]);
 
 		compute_inviscid_fluxes();
 		compute_source_term();
@@ -608,7 +611,8 @@ void Euler1dSteadyExplicit::run()
 				u[i][j] = uold[i][j] + dt[i]/vol[i]*res[i][j];
 
 		// apply BCs
-		apply_boundary_conditions();
+		apply_boundary_conditions(u[0], u[1]);
+		apply_boundary_conditions(u[N], u[N+1]);
 
 		if(step % 10 == 0)
 			std::cout << "Euler1dSteadyExplicit: run(): Step " << step << ", relative mass flux norm = " << resnorm/resnorm0 << std::endl;

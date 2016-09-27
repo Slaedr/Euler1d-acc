@@ -72,7 +72,7 @@ public:
 	/// Find new values of boundary face external states
 	/** Note that interior states at boundary faces should already be computed.
 	 */
-	void apply_boundary_conditions(std::vector<std::vector<double>>& ul, std::vector<std::vector<double>>& ur);
+	void apply_boundary_conditions(std::vector<double>& ul, std::vector<double>& ur);
 };
 
 /// Explicit RK solver for time-dependent 1D Euler equations
