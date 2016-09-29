@@ -15,6 +15,19 @@ double NoLimiter::limiter_function(double a, double b) const
 	return 1.0;
 }
 
+MinmodLimiter::MinmodLimiter(double eps) : SlopeLimiter(eps)
+{ }
+
+double MinmodLimiter::limiter_function(double a, double b) const
+{
+	if(fabs(a) <= fabs(b) && a*b >= 0)
+		return a;
+	else if(fabs(a) > fabs(b) && a*b >= 0)
+		return b;
+	else
+		return 0.0;
+}
+
 VanAlbadaLimiter::VanAlbadaLimiter(double eps) : SlopeLimiter(eps)
 { }
 

@@ -39,6 +39,13 @@ void LeastSquaresReconstruction::compute_slopes()
 			denom = (x[i-1]-x[i])*(x[i-1]-x[i]) + (x[i+1]-x[i])*(x[i+1]-x[i]);
 			dudx[i][j] = num/denom;
 		}
+
+	// one-sided derivatives for ghost cells
+	for(int j = 0; j < NVARS; j++)
+	{
+		dudx[0][j] = (u[1][j] - u[0][j])/(x[1]-x[0]);
+		dudx[N+1][j] = (u[N+1][j] - u[N][j])*2.0/(x[N+1]-x[N]);
+	}
 }
 	
 FaceReconstruction::FaceReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
@@ -54,7 +61,15 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>
 	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright, _limiter)
 {
 	if(limiter == "vanalbada")
+	{
 		lim = new VanAlbadaLimiter(SMALL_NUMBER);
+		std::cout << "MUSCLReconstruction: Using Van Albada limiter" << std::endl;
+	}
+	else if(limiter == "minmod")
+	{
+		lim = new MinmodLimiter(SMALL_NUMBER);
+		std::cout << "MUSCLReconstruction: Using minmod limiter" << std::endl;
+	}
 	else
 	{
 		lim = new NoLimiter(SMALL_NUMBER);
@@ -69,16 +84,16 @@ MUSCLReconstruction::~MUSCLReconstruction()
 
 void MUSCLReconstruction::compute_face_values()
 {
-	// iterate over interior face
+	/// NOTE: iterates over ALL faces; ghost cells must have valid derivatives!
 	int i, j, k;
 	double sminus, splus, delminus, delplus;
-	for(i = 1; i < N; i++)
+	for(i = 0; i <= N; i++)
 	{
 		// get deltas
 		for(j = 0; j < NVARS; j++)
 		{
-			delminus = 2.0*dudx[i][j]*(x[i+1]-x[i]);
-			delplus = 2.0*dudx[i+1][j]*(x[i+1]-x[i]);
+			delminus = 2.0*dudx[i][j]*(x[i+1]-x[i]) - (u[i+1][j]-u[i][j]);
+			delplus = 2.0*dudx[i+1][j]*(x[i+1]-x[i]) - (u[i+1][j]-u[i][j]);
 
 			sminus = lim->limiter_function(delminus, u[i+1][j]-u[i][j]);
 			splus = lim->limiter_function(delplus, u[i+1][j]-u[i][j]);
@@ -94,7 +109,7 @@ void MUSCLReconstruction::compute_face_values()
 	}
 
 	// get uright at 0 and uleft at N (boundary faces)
-	for(j = 0; j < NVARS; j++)
+	/*for(j = 0; j < NVARS; j++)
 	{
 		delplus = 2*dudx[1][j]*(x[1]-x[0]);
 		splus = lim->limiter_function(delplus, u[1][j]-u[0][j]);
@@ -109,5 +124,6 @@ void MUSCLReconstruction::compute_face_values()
 			
 		if(fabs(dudx[N][j]) < 1e-15)
 			uleft[N][j] = u[N][j];
-	}
+	}*/
 }
+

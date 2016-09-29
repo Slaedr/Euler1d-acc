@@ -74,4 +74,15 @@ public:
 	void compute_face_values();
 };
 
+/*class PureMUSCLReconstruction : public FaceReconstruction
+{
+	double k;											///< Controls order of reconstruction; people generally use 1/3
+	const SlopeLimiter* lim;							///< Slope limiter to use
+public:
+	MUSCLReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
+			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);
+	~MUSCLReconstruction();
+	void compute_face_values();
+};*/
+
 #endif

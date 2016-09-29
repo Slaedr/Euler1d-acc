@@ -30,6 +30,14 @@ public:
 	double limiter_function(double a, double b) const;
 };
 
+/// Minmod limiter
+class MinmodLimiter : public SlopeLimiter
+{
+public:
+	MinmodLimiter(double eps);
+	double limiter_function(double a, double b) const;
+};
+
 /// Van Albada limiter
 class VanAlbadaLimiter : public SlopeLimiter
 {

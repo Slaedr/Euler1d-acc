@@ -69,10 +69,15 @@ public:
 	/// Find new ghost cell values
 	void apply_boundary_conditions();
 	
-	/// Find new values of boundary face external states
+	/// Find new values of left boundary face external state
 	/** Note that interior states at boundary faces should already be computed.
 	 */
-	void apply_boundary_conditions(std::vector<double>& ul, std::vector<double>& ur);
+	void apply_boundary_conditions_at_left_boundary(std::vector<double>& ul, const std::vector<double>& ur);
+	
+	/// Find new values of right boundary face external state
+	/** Note that interior states at boundary faces should already be computed.
+	 */
+	void apply_boundary_conditions_at_right_boundary(const std::vector<double>& ul, std::vector<double>& ur);
 };
 
 /// Explicit RK solver for time-dependent 1D Euler equations

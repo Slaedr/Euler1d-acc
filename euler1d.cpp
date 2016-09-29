@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 	
 		std::vector<double> plist;
 
-		std::cout << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << f_time << " " << temporal_order << std::endl;
+		std::cout << "Unsteady: " << N << " " << L << " " << leftbc << " " << rightbc << " " << inv_flux << " " << cfl << " " << f_time << " " << temporal_order << std::endl;
 
 		Euler1dExplicit prob(N, L, leftbc, rightbc, leftbv, rightbv, cfl, inv_flux, slope_scheme, rec_scheme, limiter, f_time, temporal_order, rkfile);
 		prob.generate_mesh(0,plist);

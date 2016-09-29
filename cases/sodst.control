@@ -3,7 +3,7 @@ unsteady
 -output-file
 ../cases/sodst.dat
 -number-of-cells
-200
+100
 -domain-length
 1.0
 -left-BC
@@ -19,11 +19,11 @@ unsteady
 -inviscid-flux-scheme
 vanleer
 -slope-reconstruction-scheme
-none
+leastsquares
 -face-reconstruction-scheme
 MUSCL
 -limiter
-none
+vanalbada
 -Final-physical-time
 0.2
 -temporal-order-of-accuracy

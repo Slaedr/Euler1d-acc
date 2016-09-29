@@ -276,7 +276,7 @@ void Euler1d::apply_boundary_conditions()
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 	
-void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<double>& ur)
+void Euler1d::apply_boundary_conditions_at_left_boundary(std::vector<double>& ul, const std::vector<double>& ur)
 {
 	if(bcL == 0)
 	{
@@ -293,13 +293,13 @@ void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<dou
 		c_in = sqrt(g*p_in/ur[0]);
 		M_in = v_in/c_in;
 		
-		double M_ex, c_ex, v_ex, p_ex;
+		/*double M_ex, c_ex, v_ex, p_ex;
 		v_ex = ul[1]/ul[0];
 		p_ex = (g-1.0)*(ul[2] - 0.5*ul[0]*v_ex*v_ex);
 		c_ex = sqrt(g*p_ex/ul[0]);
 		M_ex = v_ex/c_ex;
 
-		double M_eff = (M_in+M_ex)/2.0;
+		double M_eff = (M_in+M_ex)/2.0;*/
 		
 		// get fluid state from presribed free-stream conditions
 		double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
@@ -308,6 +308,8 @@ void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<dou
 		double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
 		double rho = p/(R*T);
 		double E = p/(g-1.0) + 0.5*rho*v*v;
+
+		double M_eff = (M_in+bcvalL[2])*0.5;
 
 		if(M_eff >= 1.0)
 		{
@@ -335,10 +337,13 @@ void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<dou
 			ul[2] = pg/(g-1.0) + 0.5*ul[0]*vg*vg;
 		}
 		else
-			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
+			std::cout << "! Euler1d: apply_boundary_conditions_left(): Error! Inlet is becoming outlet!" << std::endl;
 	}
-	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+	else std::cout << "! Euler1D: apply_boundary_conditions_left(): BC type not recognized!" << std::endl;
+}
 
+void Euler1d::apply_boundary_conditions_at_right_boundary(const std::vector<double>& ul, std::vector<double>& ur)
+{
 	if(bcR == 0)
 	{
 		ur[0] = ul[0];
@@ -363,12 +368,14 @@ void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<dou
 		pold0 = (g-1.0)*(ur[2]-0.5*ur[0]*vold0*vold0);
 		cold0 = sqrt(g*pold0/ur[0]);
 
-		Meff = 0.5*(vold1/cold1 + vold0/cold0);
+		Meff = 0.5*(vold1/cold1 + Minf);
 		
-		if(Meff < 1.0)
+		if(Meff > 0 && Meff < 1.0)
 			R1 = vinf - 2*cinf/(g-1.0);
-		else
+		else if(Meff >= 1)
 			R1 = vold1 - 2*cold1/(g-1.0);
+		else
+			std::cout << "! Euler1d: apply_boundary_conditions_at_right_boundary(): Flow is negative!" << std::endl;
 
 		R2 = pold1/pow(ul[0],g);
 		R3 = vold1 + 2*cold1/(g-1.0);
@@ -378,8 +385,16 @@ void Euler1d::apply_boundary_conditions(std::vector<double>& ul, std::vector<dou
 		p = ur[0]*c*c/g;
 		ur[1] = ur[0]*v;
 		ur[2] = p/(g-1.0) + 0.5*ur[0]*v*v;
+		
+		/*R3 = vold1 + 2*cold1/(g-1.0);
+
+		v = 0.5*(R3+R1); c = 0.25*(g-1.0)*(R3-R1);
+		p = pinf;
+		ur[0] = g*p/(c*c);
+		ur[1] = ur[0]*v;
+		ur[2] = p/(g-1.0) + 0.5*ur[0]*v*v;*/
 	}
-	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+	else std::cout << "! Euler1D: apply_boundary_conditions_right(): BC type not recognized!" << std::endl;
 }
 
 
@@ -472,8 +487,8 @@ void Euler1dExplicit::run()
 			}
 			cslope->compute_slopes();
 			rec->compute_face_values();
-			apply_boundary_conditions(uleft[0], uright[0]);
-			apply_boundary_conditions(uleft[N], uright[N]);
+			/*apply_boundary_conditions_at_left_boundary(uleft[0], uright[0]);
+			apply_boundary_conditions_at_right_boundary(uleft[N], uright[N]);*/
 
 			compute_inviscid_fluxes();
 			compute_source_term();
@@ -484,8 +499,9 @@ void Euler1dExplicit::run()
 					u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
 
 			// apply BCs
-			apply_boundary_conditions(u[0], u[1]);
-			apply_boundary_conditions(u[N], u[N+1]);
+			/*apply_boundary_conditions_at_left_boundary(u[0], u[1]);
+			apply_boundary_conditions_at_right_boundary(u[N], u[N+1]);*/
+			apply_boundary_conditions();
 		}
 
 		if(step % 10 == 0)
@@ -580,8 +596,8 @@ void Euler1dSteadyExplicit::run()
 
 		cslope->compute_slopes();
 		rec->compute_face_values();
-		apply_boundary_conditions(uleft[0], uright[0]);
-		apply_boundary_conditions(uleft[N], uright[N]);
+		/*apply_boundary_conditions_at_left_boundary(uleft[0], uright[0]);
+		apply_boundary_conditions_at_right_boundary(uleft[N], uright[N]);*/
 
 		compute_inviscid_fluxes();
 		compute_source_term();
@@ -611,8 +627,9 @@ void Euler1dSteadyExplicit::run()
 				u[i][j] = uold[i][j] + dt[i]/vol[i]*res[i][j];
 
 		// apply BCs
-		apply_boundary_conditions(u[0], u[1]);
-		apply_boundary_conditions(u[N], u[N+1]);
+		/*apply_boundary_conditions_at_left_boundary(u[0], u[1]);
+		apply_boundary_conditions_at_right_boundary(u[N], u[N+1]);*/
+		apply_boundary_conditions();
 
 		if(step % 10 == 0)
 			std::cout << "Euler1dSteadyExplicit: run(): Step " << step << ", relative mass flux norm = " << resnorm/resnorm0 << std::endl;
