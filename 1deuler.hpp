@@ -27,10 +27,13 @@ protected:
 	double domlen;								///< Physical length of the domain
 	std::vector<double> A;						///< Cross-sectional areas at cell centers
 	std::vector<double> Af;						///< Cross-sectional areas at interfaces
-	std::vector<std::vector<double>> u;			///< Unknowns - u[i][0] is density of cell i and so on
+	std::vector<std::vector<double>> u;			///< Conserved variables - u[i][0] is density of cell i and so on
+	std::vector<std::vector<double>> prim;		///< Primitive variables - u[i][0] is density of cell i and so on
 	std::vector<std::vector<double>> uleft;		///< Left state of each face
 	std::vector<std::vector<double>> uright;	///< Right state at each face
-	std::vector<std::vector<double>> dudx;		///< Slope of conserved variables in each cell
+	std::vector<std::vector<double>> prleft;	///< Left state of each face in terms of primitive variables
+	std::vector<std::vector<double>> prright;	///< Right state at each face in terms of primitive variables
+	std::vector<std::vector<double>> dudx;		///< Slope of variables in each cell
 	std::vector<std::vector<double>> res;		///< residual
 	int bcL;									///< left BC type
 	int bcR;									///< right BC type

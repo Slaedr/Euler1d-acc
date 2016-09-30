@@ -12,7 +12,7 @@ NoLimiter::NoLimiter(double eps) : SlopeLimiter(eps)
 
 double NoLimiter::limiter_function(double a, double b) const
 {
-	return 1.0;
+	return a<b ? a : b;
 }
 
 MinmodLimiter::MinmodLimiter(double eps) : SlopeLimiter(eps)

@@ -19,11 +19,11 @@ unsteady
 -inviscid-flux-scheme
 vanleer
 -slope-reconstruction-scheme
-leastsquares
+TVD
 -face-reconstruction-scheme
-MUSCL
+linear
 -limiter
-vanalbada
+minmod
 -Final-physical-time
 0.2
 -temporal-order-of-accuracy

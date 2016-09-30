@@ -9,6 +9,9 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	u.resize(N+2);
 	uleft.resize(N+1);
 	uright.resize(N+1);
+	prim.resize(N+2);
+	prleft.resize(N+1);
+	prright.resize(N+1);
 	dudx.resize(N+2);
 	res.resize(N+2);
 	A.resize(N+2);
@@ -19,6 +22,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	for(int i = 0; i < N+2; i++)
 	{
 		u[i].resize(NVARS);
+		prim[i].resize(NVARS);
 		dudx[i].resize(NVARS);
 		res[i].resize(NVARS);
 	}
@@ -26,6 +30,8 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	{
 		uleft[i].resize(NVARS);
 		uright[i].resize(NVARS);
+		prleft[i].resize(NVARS);
+		prright[i].resize(NVARS);
 	}
 
 	if(inviscid_flux == "vanleer")
@@ -44,13 +50,27 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		cslope = new TrivialSlopeReconstruction(N,x,u,dudx);
 		std::cout << "Euler1d: No slope reconstruction to be used.\n";
 	}
-	else
+	else if(slope_scheme == "leastsquares")
 	{
-		cslope = new LeastSquaresReconstruction(N,x,u,dudx);
+		cslope = new LeastSquaresReconstruction(N,x,prim,dudx);
 		std::cout << "Euler1d: Least-squares slope reconstruction will be used.\n";
 	}
+	else
+	{
+		cslope = new TVDSlopeReconstruction(N,x,prim,dudx,limiter);
+		std::cout << "Euler1d: TVD slope reconstruction will be used.\n";
+	}
 
-	rec = new MUSCLReconstruction(N,x,u,dudx,uleft,uright,limiter,muscl_k);
+	if(face_extrap_scheme == "MUSCL")
+	{
+		rec = new MUSCLReconstruction(N,x,prim,dudx,prleft,prright,limiter,muscl_k);
+		std::cout << "Euler1d: Using MUSCL face reconstruction." << std::endl;
+	}
+	else
+	{
+		rec = new LinearReconstruction(N,x,prim,dudx,prleft,prright);
+		std::cout << "Euler1d: Using Linear Taylor expansion reconstruction." << std::endl;
+	}
 }
 
 Euler1d::~Euler1d()
@@ -133,7 +153,8 @@ void Euler1d::compute_inviscid_fluxes()
 	// iterate over interfaces
 	for(int i = 0; i < N+1; i++)
 	{
-		flux->compute_flux(uleft[i], uright[i], fluxes[i]);
+		//flux->compute_flux(uleft[i], uright[i], fluxes[i]);
+		flux->compute_flux_prim(prleft[i], prright[i], fluxes[i]);
 
 		// update residual
 		for(int j = 0; j < NVARS; j++)
@@ -164,6 +185,9 @@ void Euler1d::apply_boundary_conditions()
 		u[0][0] = u[1][0];
 		u[0][1] = -u[1][1];
 		u[0][2] = u[1][2];
+		prim[0][0] = prim[1][0];
+		prim[0][1] = -prim[1][1];
+		prim[0][2] = prim[1][2];
 	}
 	else if(bcL == 1)
 	{
@@ -190,6 +214,9 @@ void Euler1d::apply_boundary_conditions()
 			u[0][0] = rho;
 			u[0][1] = rho*v;
 			u[0][2] = E;
+			prim[0][0] = rho;
+			prim[0][1] = v;
+			prim[0][2] = p;
 		}
 		else if(M_in >= 0)
 		{
@@ -216,6 +243,9 @@ void Euler1d::apply_boundary_conditions()
 			u[0][0] = p/(R*T);
 			u[0][1] = u[0][0]*v;
 			u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
+			prim[0][0] = u[0][0];
+			prim[0][1] = v;
+			prim[0][2] = p;
 
 			/*c = sqrt(g*p/u[0][0]);
 			M = v/c;
@@ -231,6 +261,9 @@ void Euler1d::apply_boundary_conditions()
 		u[N+1][0] = u[N][0];
 		u[N+1][1] = -u[N][1];
 		u[N+1][2] = u[N][2];
+		prim[N+1][0] = prim[N][0];
+		prim[N+1][1] = -prim[N][1];
+		prim[N+1][2] = prim[N][2];
 	}
 	else if(bcR == 3)
 	{
@@ -272,6 +305,9 @@ void Euler1d::apply_boundary_conditions()
 			p = bcvalR[0];
 
 		u[N+1][2] = p/(g-1.0) + 0.5*u[N+1][0]*(vold+dv)*(vold+dv);
+		prim[N+1][0] = u[N+1][0];
+		prim[N+1][1] = vold+dv;
+		prim[N+1][2] = p;
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
@@ -428,12 +464,18 @@ void Euler1dExplicit::run()
 			u[i][0] = 1.0;
 			u[i][1] = 0;
 			u[i][2] = 2.5;
+			prim[i][0] = 1.0;
+			prim[i][1] = 0;
+			prim[i][2] = 1.0;
 		}
 		else
 		{
 			u[i][0] = 0.125;
 			u[i][1] = 0;
 			u[i][2] = 0.25;
+			prim[i][0] = 0.125;
+			prim[i][1] = 0;
+			prim[i][2] = 0.1;
 		}
 
 	std::vector<double> c(N+2);
@@ -495,8 +537,14 @@ void Euler1dExplicit::run()
 
 			// RK stage
 			for(i = 1; i < N+1; i++)
+			{
 				for(j = 0; j < NVARS; j++)
 					u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
+
+				prim[i][0] = u[i][0];
+				prim[i][1] = u[i][1]/u[i][0];
+				prim[i][2] = (g-1.0)*(u[i][2] - 0.5*u[i][1]*prim[i][1]);
+			}
 
 			// apply BCs
 			/*apply_boundary_conditions_at_left_boundary(u[0], u[1]);
@@ -568,6 +616,9 @@ void Euler1dSteadyExplicit::run()
 		double cin = sqrt(g*pin/u[i][0]);
 		u[i][1] = u[i][0]*M*cin;
 		u[i][2] = pin/(g-1.0)+0.5*u[i][1]*M*cin;
+		prim[i][0] = u[i][0];
+		prim[i][1] = M*cin;
+		prim[i][2] = pin;
 	}
 
 	// set rest of the cells according to exit conditions
@@ -578,6 +629,9 @@ void Euler1dSteadyExplicit::run()
 		vex = Mex*cex;
 		u[i][1] = u[i][0]*vex;
 		u[i][2] = pex/(g-1.0) + 0.5*u[i][0]*vex*vex;
+		prim[i][0] = u[i][0];
+		prim[i][1] = vex;
+		prim[i][2] = pex;
 	}
 
 	// Start time loop
@@ -623,8 +677,14 @@ void Euler1dSteadyExplicit::run()
 
 		// RK step
 		for(i = 1; i < N+1; i++)
+		{
 			for(j = 0; j < NVARS; j++)
 				u[i][j] = uold[i][j] + dt[i]/vol[i]*res[i][j];
+
+			prim[i][0] = u[i][0];
+			prim[i][1] = u[i][1]/u[i][0];
+			prim[i][2] = (g-1.0)*(u[i][2] - 0.5*u[i][1]*prim[i][1]);
+		}
 
 		// apply BCs
 		/*apply_boundary_conditions_at_left_boundary(u[0], u[1]);

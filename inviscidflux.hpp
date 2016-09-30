@@ -15,13 +15,17 @@
 class InviscidFlux
 {
 public:
+	/// Compute flux from converved variables at left and right of faces
 	virtual void compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux) = 0;
+	/// Compute flux from primitive variables at left and right of faces
+	virtual void compute_flux_prim(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux) = 0;
 };
 
 class LocalLaxFriedrichsFlux : public InviscidFlux
 {
 public:
 	void compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux);
+	void compute_flux_prim(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux);
 };
 
 /// Van-Leer flux
@@ -32,6 +36,7 @@ class VanLeerFlux : public InviscidFlux
 public:
 	VanLeerFlux();
 	void compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux);
+	void compute_flux_prim(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux);
 };
 
 #endif

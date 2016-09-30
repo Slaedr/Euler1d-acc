@@ -13,21 +13,21 @@ steady
 -left-boundary-values(Pt,Tt,M)
 2117.0 531.2 0.2
 -right-boundary-values(P,T,M)
-1608.9 500 0.2
+1439.6 500 0.2
 -CFL
 0.1
 -inviscid-flux-scheme
-llf
+vanleer
 -slope-scheme
-leastsquares
+TVD
 -face-reconstruction-scheme
-MUSCL
+linear
 -limiter
-vanalbada
+minmod
 -Tolerance
-1e-9
+1e-7
 -Max-iterations
-750000
+450000
 -area-function-setup-type
 1
 -area-function-file

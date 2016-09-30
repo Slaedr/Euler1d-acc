@@ -1,5 +1,5 @@
 /** \file limiters.hpp
- * \brief Limiters for MUSCL scheme, possible WENO limiter.
+ * \brief Limiters for TVD/MUSCL schemes
  * \author Aditya Kashi
  * \date 20 September 2016
  */

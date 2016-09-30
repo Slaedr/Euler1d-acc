@@ -44,6 +44,16 @@ public:
 	void compute_slopes();
 };
 
+/// Computes TVD limited slopes
+class TVDSlopeReconstruction : public SlopeReconstruction
+{
+	const SlopeLimiter* lim;				///< Slope limiter to use
+public:
+	TVDSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx, std::string limiter);
+	~TVDSlopeReconstruction();
+	void compute_slopes();
+};
+
 
 /// Interface for computing face values from cell-centred values
 class FaceReconstruction
@@ -55,10 +65,9 @@ protected:
 	const std::vector<std::vector<double>>& dudx;		///< Cell-centred slopes
 	std::vector<std::vector<double>>& uleft;			///< Left value at each face
 	std::vector<std::vector<double>>& uright;			///< Right value at each face
-	std::string limiter;								///< String describing the limiter to use
 public:
 	FaceReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright, std::string _limiter);
+			std::vector<std::vector<double>>& uright);
 	virtual ~FaceReconstruction();
 	virtual void compute_face_values() = 0;
 };
@@ -66,11 +75,20 @@ public:
 class MUSCLReconstruction : public FaceReconstruction
 {
 	double k;											///< Controls order of reconstruction; people generally use 1/3
+	std::string limiter;								///< String describing the limiter to use
 	const SlopeLimiter* lim;							///< Slope limiter to use
 public:
 	MUSCLReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
 			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);
 	~MUSCLReconstruction();
+	void compute_face_values();
+};
+
+class LinearReconstruction : public FaceReconstruction
+{
+public:
+	LinearReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
+			std::vector<std::vector<double>>& uright);
 	void compute_face_values();
 };
 
