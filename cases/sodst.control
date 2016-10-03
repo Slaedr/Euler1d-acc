@@ -17,13 +17,13 @@ unsteady
 -CFL
 0.1
 -inviscid-flux-scheme
-vanleer
+llf
 -slope-reconstruction-scheme
-TVD
+none
 -face-reconstruction-scheme
 linear
 -limiter
-minmod
+none
 -Final-physical-time
 0.2
 -temporal-order-of-accuracy
