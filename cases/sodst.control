@@ -19,11 +19,11 @@ unsteady
 -inviscid-flux-scheme
 llf
 -slope-reconstruction-scheme
-none
+leastsquares
 -face-reconstruction-scheme
-linear
+MUSCL
 -limiter
-none
+vanalbada
 -Final-physical-time
 0.2
 -temporal-order-of-accuracy

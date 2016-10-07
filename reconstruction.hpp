@@ -47,7 +47,7 @@ public:
 /// Computes TVD limited slopes
 class TVDSlopeReconstruction : public SlopeReconstruction
 {
-	const SlopeLimiter* lim;				///< Slope limiter to use
+	const SlopeLimiter1* lim;				///< Slope limiter to use
 public:
 	TVDSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx, std::string limiter);
 	~TVDSlopeReconstruction();
@@ -76,7 +76,7 @@ class MUSCLReconstruction : public FaceReconstruction
 {
 	double k;											///< Controls order of reconstruction; people generally use 1/3
 	std::string limiter;								///< String describing the limiter to use
-	const SlopeLimiter* lim;							///< Slope limiter to use
+	const SlopeLimiter1* lim;							///< Slope limiter to use
 public:
 	MUSCLReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
 			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);

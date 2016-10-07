@@ -13,37 +13,69 @@
 #endif
 
 /// Interface for TVD/MUSCL slope limiters
-class SlopeLimiter
+class SlopeLimiter1
 {
 protected:
 	const double eps;							///< Small number needed by some limiters
 public:
-	SlopeLimiter(double _eps);
+	SlopeLimiter1(double _eps);
 	virtual double limiter_function(double a, double b) const = 0;
 };
 
 /// `Limiter' with value 1.0 always
-class NoLimiter : public SlopeLimiter
+class NoLimiter1 : public SlopeLimiter1
 {
 public:
-	NoLimiter(double eps);
+	NoLimiter1(double eps);
 	double limiter_function(double a, double b) const;
 };
 
 /// Minmod limiter
-class MinmodLimiter : public SlopeLimiter
+class MinmodLimiter1 : public SlopeLimiter1
 {
 public:
-	MinmodLimiter(double eps);
+	MinmodLimiter1(double eps);
 	double limiter_function(double a, double b) const;
 };
 
 /// Van Albada limiter
-class VanAlbadaLimiter : public SlopeLimiter
+class VanAlbadaLimiter1 : public SlopeLimiter1
 {
 public:
-	VanAlbadaLimiter(double eps);
+	VanAlbadaLimiter1(double eps);
 	double limiter_function(double a, double b) const;
 };
 
+
+/// Interface for limiters which take a single argument - ratio of consecutive differences
+class Limiter
+{
+public:
+	virtual double limiter_function(double r) const = 0;
+};
+
+/// For no limiting
+class NoLimiter : public Limiter
+{
+public:
+	double limiter_function(double r) const;
+};
+
+/// Val Albada (alternative form) limiter
+/** Phi(r) := 2r / (1+r^2).
+ */
+class VanAlbadaLimiter : public Limiter
+{
+public:
+	double limiter_function(double r) const;
+};
+
+/// Limiter by Hemker and Koren; see Blazek's book.
+/** Phi(r) := 3r / (2r^2 - r + 2).
+ */
+class HemkerKorenLimiter : public Limiter
+{
+public:
+	double limiter_function(double r) const;
+};
 #endif

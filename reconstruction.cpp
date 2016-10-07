@@ -35,7 +35,7 @@ void LeastSquaresReconstruction::compute_slopes()
 	for(int i = 1; i <= N; i++)
 		for(int j = 0; j < NVARS; j++)
 		{
-			num = (u[i-1][j]-u[i][j])*(x[i-1]-x[i]) + u[i+1][j]-u[i][j]*(x[i+1]-x[i]);
+			num = (u[i-1][j]-u[i][j])*(x[i-1]-x[i]) + (u[i+1][j]-u[i][j])*(x[i+1]-x[i]);
 			denom = (x[i-1]-x[i])*(x[i-1]-x[i]) + (x[i+1]-x[i])*(x[i+1]-x[i]);
 			dudx[i][j] = num/denom;
 		}
@@ -53,17 +53,17 @@ TVDSlopeReconstruction::TVDSlopeReconstruction(const int _N, const std::vector<d
 {
 	if(_lim == "minmod")
 	{
-		lim = new MinmodLimiter(SMALL_NUMBER);
+		lim = new MinmodLimiter1(SMALL_NUMBER);
 		std::cout << "TVDSlopeReconstruction: Using minmod limiter" << std::endl;
 	}
 	else if(_lim == "vanalbada")
 	{
-		lim = new VanAlbadaLimiter(SMALL_NUMBER);
+		lim = new VanAlbadaLimiter1(SMALL_NUMBER);
 		std::cout << "TVDSlopeReconstruction: Using Van Albada limiter" << std::endl;
 	}
 	else
 	{
-		lim = new NoLimiter(SMALL_NUMBER);
+		lim = new NoLimiter1(SMALL_NUMBER);
 		std::cout << "TVDSlopeReconstruction: Using no limiter!" << std::endl;
 	}
 }
@@ -109,17 +109,22 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>
 {
 	if(limiter == "vanalbada")
 	{
-		lim = new VanAlbadaLimiter(SMALL_NUMBER);
+		lim = new VanAlbadaLimiter1(SMALL_NUMBER);
 		std::cout << "MUSCLReconstruction: Using Van Albada limiter" << std::endl;
 	}
 	else if(limiter == "minmod")
 	{
-		lim = new MinmodLimiter(SMALL_NUMBER);
+		lim = new MinmodLimiter1(SMALL_NUMBER);
 		std::cout << "MUSCLReconstruction: Using minmod limiter" << std::endl;
 	}
+	/*else if(limiter == "hemkerkoren")
+	{
+		lim = new HemkerKorenLimiter();
+		std::cout << "MUSCLReconstruction: Using Hemker-Koren limiter" << std::endl;
+	}*/
 	else
 	{
-		lim = new NoLimiter(SMALL_NUMBER);
+		lim = new NoLimiter1(SMALL_NUMBER);
 		std::cout << "MUSCLReconstruction: Caution: not using any limiter.\n";
 	}
 }
@@ -145,8 +150,8 @@ void MUSCLReconstruction::compute_face_values()
 			sminus = lim->limiter_function( delminus, u[i+1][j]-u[i][j] );
 			splus = lim->limiter_function( delplus, u[i+1][j]-u[i][j] );
 
-			uleft[i][j] = u[i][j] + sminus/4.0*( (1-k*sminus)*delminus + (1+k*sminus)*(u[i+1][j]-u[i][j]) );
-			uright[i][j] = u[i+1][j] - splus/4.0*( (1-k*splus)*delplus + (1+k*splus)*(u[i+1][j]-u[i][j]) );
+			uleft[i][j] = u[i][j] + sminus/4.0*( (1-k)*delminus + (1+k)*(u[i+1][j]-u[i][j]) );
+			uright[i][j] = u[i+1][j] - splus/4.0*( (1-k)*delplus + (1+k)*(u[i+1][j]-u[i][j]) );
 
 			if(fabs(dudx[i][j]) < 1e-15)
 				uleft[i][j] = u[i][j];

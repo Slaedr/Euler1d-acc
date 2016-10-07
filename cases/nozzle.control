@@ -25,7 +25,7 @@ MUSCL
 -limiter
 vanalbada
 -Tolerance
-1e-9
+1e-5
 -Max-iterations
 450000
 -area-function-setup-type
