@@ -66,6 +66,11 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		rec = new MUSCLReconstruction(N,x,prim,dudx,prleft,prright,limiter,muscl_k);
 		std::cout << "Euler1d: Using MUSCL face reconstruction." << std::endl;
 	}
+	else if(face_extrap_scheme == "MUSCLG")
+	{
+		rec = new MUSCLReconstructionG(N,x,prim,dudx,prleft,prright,limiter,muscl_k);
+		std::cout << "Euler1d: Using 'MUSCL-G' face reconstruction." << std::endl;
+	}
 	else
 	{
 		rec = new LinearReconstruction(N,x,prim,dudx,prleft,prright);
@@ -610,7 +615,8 @@ void Euler1dSteadyExplicit::run()
 	double cin;
 	
 	// set some cells according to inlet condition
-	for(int i = 0; i <= N; i++)
+	int pn = N/4;
+	for(int i = 0; i <= pn; i++)
 	{
 		u[i][0] = pin/(R*Tin);
 		double cin = sqrt(g*pin/u[i][0]);
@@ -621,7 +627,7 @@ void Euler1dSteadyExplicit::run()
 		prim[i][2] = pin;
 	}
 
-	// set rest of the cells according to exit conditions
+	// set last cells according to exit conditions
 	for(int i = N+1; i <= N+1; i++)
 	{
 		u[i][0] = pex/(R*tex);
@@ -632,6 +638,16 @@ void Euler1dSteadyExplicit::run()
 		prim[i][0] = u[i][0];
 		prim[i][1] = vex;
 		prim[i][2] = pex;
+	}
+
+	// linearly interpolate cells in the middle
+	for(int i = pn; i < N+1; i++)
+	{
+		for(int j = 0; j < NVARS; j++)
+		{
+			u[i][j] = (u[N+1][j]-u[pn][j])/(x[N+1]-x[pn])*(x[i]-x[pn]) + u[pn][j];
+			prim[i][j] = (prim[N+1][j]-prim[pn][j])/(x[N+1]-x[pn])*(x[i]-x[pn]) + prim[pn][j];
+		}
 	}
 
 	// Start time loop

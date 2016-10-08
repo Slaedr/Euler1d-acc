@@ -23,11 +23,11 @@ leastsquares
 -face-reconstruction-scheme
 MUSCL
 -limiter
-vanalbada
+none
 -Tolerance
 1e-5
 -Max-iterations
-450000
+4
 -area-function-setup-type
 1
 -area-function-file

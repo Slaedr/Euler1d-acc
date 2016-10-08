@@ -109,6 +109,116 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>
 {
 	if(limiter == "vanalbada")
 	{
+		lim = new VanAlbadaLimiter();
+		std::cout << "MUSCLReconstruction: Using Van Albada limiter" << std::endl;
+	}
+	/*else if(limiter == "minmod")
+	{
+		lim = new MinmodLimiter1(SMALL_NUMBER);
+		std::cout << "MUSCLReconstruction: Using minmod limiter" << std::endl;
+	}*/
+	else if(limiter == "hemkerkoren")
+	{
+		lim = new HemkerKorenLimiter();
+		std::cout << "MUSCLReconstruction: Using Hemker-Koren limiter" << std::endl;
+	}
+	else
+	{
+		lim = new NoLimiter();
+		std::cout << "MUSCLReconstruction: Caution: not using any limiter.\n";
+	}
+}
+
+MUSCLReconstruction::~MUSCLReconstruction()
+{
+	delete lim;
+}
+
+void MUSCLReconstruction::compute_face_values()
+{
+	int i, j, k;
+	double denL, denR, num, rL, rR;
+
+	// interior faces
+	for(i = 1; i <= N-1; i++)
+	{
+		for(j = 0; j < NVARS; j++)
+		{
+			denL = u[i][j]-u[i-1][j];
+			denR = u[i+2][j]-u[i+1][j];
+			num = u[i+1][j]-u[i][j];
+
+			if(fabs(denL) > ZERO_TOL*10)
+			{
+				rL = num/denL;
+				uleft[i][j] = u[i][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+			}
+			else
+				uleft[i][j] = u[i][j];
+
+			if(fabs(denR) > ZERO_TOL*10)
+			{
+				rR = num/denR;
+				uright[i][j] = u[i+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+			}
+			else
+				uright[i][j] = u[i+1][j];
+		}
+	}
+
+	// boundaries
+	for(j = 0; j < NVARS; j++)
+	{
+		// left
+		denL = u[0][j]-u[0][j];
+		denR = u[2][j]-u[1][j];
+		num = u[1][j]-u[0][j];
+
+		if(fabs(denL) > ZERO_TOL*10)
+		{
+			rL = num/denL;
+			uleft[0][j] = u[0][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+		}
+		else
+			uleft[0][j] = u[0][j];
+
+		if(fabs(denR) > ZERO_TOL*10)
+		{
+			rR = num/denR;
+			uright[0][j] = u[1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+		}
+		else
+			uright[0][j] = u[1][j];
+		
+		// right
+		denL = u[N][j]-u[N-1][j];
+		denR = u[N+1][j]-u[N+1][j];
+		num = u[N+1][j]-u[N][j];
+
+		if(fabs(denL) > ZERO_TOL*10)
+		{
+			rL = num/denL;
+			uleft[N][j] = u[N][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+		}
+		else
+			uleft[N][j] = u[N][j];
+
+		if(fabs(denR) > ZERO_TOL*10)
+		{
+			rR = num/denR;
+			uright[N][j] = u[N+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+		}
+		else
+			uright[N][j] = u[N+1][j];
+	}
+}
+
+MUSCLReconstructionG::MUSCLReconstructionG(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
+		std::vector<std::vector<double>>& uleft, std::vector<std::vector<double>>& uright, std::string _limiter, double _k)
+	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright), limiter(_limiter)
+{
+	if(limiter == "vanalbada")
+	{
 		lim = new VanAlbadaLimiter1(SMALL_NUMBER);
 		std::cout << "MUSCLReconstruction: Using Van Albada limiter" << std::endl;
 	}
@@ -129,12 +239,12 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>
 	}
 }
 
-MUSCLReconstruction::~MUSCLReconstruction()
+MUSCLReconstructionG::~MUSCLReconstructionG()
 {
 	delete lim;
 }
 
-void MUSCLReconstruction::compute_face_values()
+void MUSCLReconstructionG::compute_face_values()
 {
 	/// NOTE: iterates over ALL faces; ghost cells must have valid derivatives!
 	int i, j, k;
