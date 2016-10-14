@@ -47,17 +47,22 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 
 	if(slope_scheme == "none")
 	{
-		cslope = new TrivialSlopeReconstruction(N,x,u,dudx);
+		cslope = new TrivialSlopeReconstruction(N,x,dx,u,dudx);
 		std::cout << "Euler1d: No slope reconstruction to be used.\n";
 	}
 	else if(slope_scheme == "leastsquares")
 	{
-		cslope = new LeastSquaresReconstruction(N,x,prim,dudx);
+		cslope = new LeastSquaresReconstruction(N,x,dx,prim,dudx);
 		std::cout << "Euler1d: Least-squares slope reconstruction will be used.\n";
+	}
+	else if(slope_scheme == "central")
+	{
+		cslope = new CentralDifferenceReconstruction(N,x,dx,prim,dudx);
+		std::cout << "Euler1d: Central difference slope will be used.\n";
 	}
 	else
 	{
-		cslope = new TVDSlopeReconstruction(N,x,prim,dudx,limiter);
+		cslope = new TVDSlopeReconstruction(N,x,dx,prim,dudx,limiter);
 		std::cout << "Euler1d: TVD slope reconstruction will be used.\n";
 	}
 
@@ -708,12 +713,23 @@ void Euler1dSteadyExplicit::run()
 		apply_boundary_conditions();
 
 		if(step % 10 == 0)
+		{
 			std::cout << "Euler1dSteadyExplicit: run(): Step " << step << ", relative mass flux norm = " << resnorm/resnorm0 << std::endl;
+		}
 
 		step++;
 	}
 
 	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << std::endl;
+
+	/*for(int j = 0; j < NVARS; j++)
+	{
+		for(int i = 0; i <= N+1; i++)
+			std::cout << dudx[i][j] << " ";
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;*/
+
 	if(step == maxiter)
 		std::cout << "Euler1dExplicit: run(): Not converged!" << std::endl;
 }

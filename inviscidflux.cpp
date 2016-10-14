@@ -24,6 +24,11 @@ void LocalLaxFriedrichsFlux::compute_flux_prim(const std::vector<double>& uleft,
 {
 	double eps = 0.5;
 
+	/*if(uleft[2] < SMALL_NUMBER)
+		std::cout << "LLF: " << uleft[2] << std::endl;
+	if(uleft[0] < SMALL_NUMBER)
+		std::cout << "LLF: " << uleft[0] << std::endl;*/
+
 	double cl = sqrt(g* uleft[2] / uleft[0]);
 	double cr = sqrt(g* uright[2] / uright[0]);
 	double El = uleft[2]/(g-1.0) + 0.5*uleft[0]*uleft[1]*uleft[1];

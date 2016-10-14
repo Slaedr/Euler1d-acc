@@ -20,10 +20,11 @@ class SlopeReconstruction
 protected:
 	const int N;										///< Number of cells
 	const std::vector<double>& x;						///< Cell centres
+	const std::vector<double>& dx;						///< Cell widths
 	const std::vector<std::vector<double>>& u;			///< Cell-centred variables
 	std::vector<std::vector<double>>& dudx;				///< Cell-centred slopes
 public:
-	SlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	SlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
 	virtual ~SlopeReconstruction();
 	virtual void compute_slopes() = 0;
 };
@@ -32,7 +33,7 @@ public:
 class TrivialSlopeReconstruction : public SlopeReconstruction
 {
 public:
-	TrivialSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	TrivialSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
 	void compute_slopes();
 };
 
@@ -40,7 +41,15 @@ public:
 class LeastSquaresReconstruction : public SlopeReconstruction
 {
 public:
-	LeastSquaresReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	LeastSquaresReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	void compute_slopes();
+};
+
+/// Computes cell-centred derivatives using central difference
+class CentralDifferenceReconstruction : public SlopeReconstruction
+{
+public:
+	CentralDifferenceReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
 	void compute_slopes();
 };
 
@@ -49,7 +58,8 @@ class TVDSlopeReconstruction : public SlopeReconstruction
 {
 	const SlopeLimiter1* lim;				///< Slope limiter to use
 public:
-	TVDSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx, std::string limiter);
+	TVDSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, 
+			std::vector<std::vector<double>>& _dudx, std::string limiter);
 	~TVDSlopeReconstruction();
 	void compute_slopes();
 };

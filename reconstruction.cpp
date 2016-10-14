@@ -6,15 +6,16 @@
 
 #include "reconstruction.hpp"
 
-SlopeReconstruction::SlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
-	: N(_N), x(_x), u(_u), dudx(_dudx)
+SlopeReconstruction::SlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: N(_N), x(_x), dx(_dx), u(_u), dudx(_dudx)
 { }
 	
 SlopeReconstruction::~SlopeReconstruction()
 { }
 
-TrivialSlopeReconstruction::TrivialSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
-	: SlopeReconstruction(_N, _x, _u, _dudx)
+TrivialSlopeReconstruction::TrivialSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
+		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 { }
 
 void TrivialSlopeReconstruction::compute_slopes()
@@ -24,8 +25,9 @@ void TrivialSlopeReconstruction::compute_slopes()
 			dudx[i][j] = 0;
 }
 
-LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
-	: SlopeReconstruction(_N, _x, _u, _dudx)
+LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
+		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 { }
 
 void LeastSquaresReconstruction::compute_slopes()
@@ -44,12 +46,36 @@ void LeastSquaresReconstruction::compute_slopes()
 	for(int j = 0; j < NVARS; j++)
 	{
 		dudx[0][j] = (u[1][j] - u[0][j])/(x[1]-x[0]);
-		dudx[N+1][j] = (u[N+1][j] - u[N][j])*2.0/(x[N+1]-x[N]);
+		dudx[N+1][j] = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
+		//dudx[0][j] = 0;
+		//dudx[N+1][j] = 0;
 	}
 }
 
-TVDSlopeReconstruction::TVDSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx, std::string _lim)
-	: SlopeReconstruction(_N, _x, _u, _dudx)
+CentralDifferenceReconstruction::CentralDifferenceReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
+		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
+{ }
+
+void CentralDifferenceReconstruction::compute_slopes()
+{
+	for(int i = 1; i <= N; i++)
+		for(int j = 0; j < NVARS; j++)
+		{
+			dudx[i][j] = (u[i+1][j]-u[i-1][j])/(2*dx[i]);
+		}
+
+	// one-sided derivatives for ghost cells
+	for(int j = 0; j < NVARS; j++)
+	{
+		dudx[0][j] = (u[1][j] - u[0][j])/(x[1]-x[0]);
+		dudx[N+1][j] = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
+	}
+}
+
+TVDSlopeReconstruction::TVDSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
+		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx, std::string _lim)
+	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 {
 	if(_lim == "minmod")
 	{
@@ -112,15 +138,20 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>
 		lim = new VanAlbadaLimiter();
 		std::cout << "MUSCLReconstruction: Using Van Albada limiter" << std::endl;
 	}
-	/*else if(limiter == "minmod")
+	else if(limiter == "minmod")
 	{
-		lim = new MinmodLimiter1(SMALL_NUMBER);
+		lim = new MinmodLimiter();
 		std::cout << "MUSCLReconstruction: Using minmod limiter" << std::endl;
-	}*/
+	}
 	else if(limiter == "hemkerkoren")
 	{
 		lim = new HemkerKorenLimiter();
 		std::cout << "MUSCLReconstruction: Using Hemker-Koren limiter" << std::endl;
+	}
+	else if(limiter == "vanleer")
+	{
+		lim = new VanLeerLimiter();
+		std::cout << "MUSCLReconstruction: Using Van Leer limiter" << std::endl;
 	}
 	else
 	{
@@ -165,12 +196,26 @@ void MUSCLReconstruction::compute_face_values()
 				uright[i][j] = u[i+1][j];
 		}
 	}
-
+	
 	// boundaries
+	// NOTE: At boundaries, the following leads to a only FIRST order scheme.
 	for(j = 0; j < NVARS; j++)
 	{
+		// extrapolate variables
+		double slope, cc, um0, xm0, umN, xmN;
+
+		slope = (u[1][j] - u[0][j])/(x[1]-x[0]);
+		cc = u[0][j] - (u[1][j]-u[0][j])/(x[1]-x[0])*x[0];
+		xm0 = x[0] - (x[1]-x[0]);
+		um0 = slope*xm0 + cc;
+
+		slope = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
+		cc = u[N][j] - (u[N+1][j]-u[N][j])/(x[N+1]-x[N])*x[N];
+		xmN = x[N+1] + x[N]-x[N-1];
+		umN = slope*xmN + cc;
+
 		// left
-		denL = u[0][j]-u[0][j];
+		denL = u[0][j] - um0;
 		denR = u[2][j]-u[1][j];
 		num = u[1][j]-u[0][j];
 
@@ -192,7 +237,7 @@ void MUSCLReconstruction::compute_face_values()
 		
 		// right
 		denL = u[N][j]-u[N-1][j];
-		denR = u[N+1][j]-u[N+1][j];
+		denR = umN - u[N+1][j];
 		num = u[N+1][j]-u[N][j];
 
 		if(fabs(denL) > ZERO_TOL*10)
@@ -267,6 +312,12 @@ void MUSCLReconstructionG::compute_face_values()
 				uleft[i][j] = u[i][j];
 			if(fabs(dudx[i+1][j]) < 1e-15)
 				uright[i][j] = u[i+1][j];
+
+			// hard limit
+			if(uleft[i][j] <= ZERO_TOL*100)
+				uleft[i][j] = SMALL_NUMBER*100;
+			if(uright[i][j] <= ZERO_TOL*100)
+				uright[i][j] = SMALL_NUMBER*100;
 		}
 	}
 

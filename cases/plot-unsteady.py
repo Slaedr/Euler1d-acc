@@ -14,7 +14,7 @@ data = np.genfromtxt(fname)
 n = data.shape[0]
 
 plt.plot(data[:,0],data[:,1],'-', label="Density")
-plt.plot(data[:,0],data[:,2], '-', label="Mach number")
+plt.plot(data[:,0],data[:,2], '-', label="Mach")
 plt.plot(data[:,0],data[:,3], '-', label="Pressure")
 plt.axis((0,1,-0.1,1.1))
 plt.title(scheme)

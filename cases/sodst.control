@@ -17,11 +17,11 @@ unsteady
 -CFL
 0.1
 -inviscid-flux-scheme
-llf
+vanleer
 -slope-reconstruction-scheme
 leastsquares
 -face-reconstruction-scheme
-MUSCL
+MUSCLG
 -limiter
 vanalbada
 -Final-physical-time

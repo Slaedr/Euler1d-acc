@@ -53,3 +53,14 @@ double HemkerKorenLimiter::limiter_function(double r) const
 {
 	return 3.0*r/(2.0*r*r-r+2.0);
 }
+
+double MinmodLimiter::limiter_function(double r) const
+{
+	double out = 1.0 < r ? 1.0 : r;
+	return out > 0.0 ? out : 0.0;
+}
+
+double VanLeerLimiter::limiter_function(double r) const
+{
+	return (r + fabs(r))/(1 + fabs(r));
+}

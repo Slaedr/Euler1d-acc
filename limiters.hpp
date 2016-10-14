@@ -78,4 +78,18 @@ class HemkerKorenLimiter : public Limiter
 public:
 	double limiter_function(double r) const;
 };
+
+class MinmodLimiter : public Limiter
+{
+public:
+	double limiter_function(double r) const;
+};
+
+/// Van Leer limiter - bad
+class VanLeerLimiter : public Limiter
+{
+public:
+	double limiter_function(double r) const;
+};
+
 #endif
