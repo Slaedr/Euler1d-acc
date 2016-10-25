@@ -3,7 +3,7 @@ unsteady
 -output-file
 ../cases/sodst.dat
 -number-of-cells
-100
+1000
 -domain-length
 1.0
 -left-BC
@@ -15,13 +15,13 @@ unsteady
 -right-boundary-values
 0 0 0
 -CFL
-0.1
+0.2
 -inviscid-flux-scheme
 vanleer
 -slope-reconstruction-scheme
-leastsquares
+none
 -face-reconstruction-scheme
-MUSCLG
+MUSCL
 -limiter
 vanalbada
 -Final-physical-time
