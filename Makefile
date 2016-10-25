@@ -25,6 +25,7 @@ CPPFLAGS =  -std=c++14 -O3
 LFLAGS = -O3 #-lmkl_intel_lp64 -lmkl_intel_thread -liomp5 -lmkl_core -lpthread
 endif
 else
+PROFILE = -pg
 $(info "Compiling debug version")
 ifeq ($(CXX),pgc++)
 CPPFLAGS = -std=c++11 -g
