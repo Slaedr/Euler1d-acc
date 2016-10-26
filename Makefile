@@ -18,7 +18,7 @@ ifeq ($(DEBUG),0)
 $(info "Compiling with optimizations, without debug data")
 ifeq ($(CXX),pgc++)
 $(info "Setting flags for pgc++")
-CPPFLAGS = -std=c++11 -O3 -Msafeptr=all -fast
+CPPFLAGS = -std=c++11 -O3 -Msafeptr=all -fast -acc -ta=tesla -Minfo=accel,vect
 LFLAGS = -O3
 else
 CPPFLAGS =  -std=c++14 -O3
