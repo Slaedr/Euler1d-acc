@@ -14,25 +14,36 @@ PROFILE= #-pg
 CFLAGS =
 
 # if DEBUG is 1 or not defined, code is compiled in debug mode. Otherwise, optimizations are enabled
-ifeq ($(DEBUG),0)
+ifndef DEBUG
+
 $(info "Compiling with optimizations, without debug data")
 ifeq ($(CXX),pgc++)
 $(info "Setting flags for pgc++")
-CPPFLAGS = -std=c++11 -O3 -Msafeptr=all -fast -acc -ta=tesla -Minfo=accel,vect
+CPPFLAGS = -std=c++11 -O3 -Msafeptr=all -fast
 LFLAGS = -O3
 else
 CPPFLAGS =  -std=c++14 -O3
 LFLAGS = -O3 #-lmkl_intel_lp64 -lmkl_intel_thread -liomp5 -lmkl_core -lpthread
 endif
+
 else
+
 PROFILE = -pg
 $(info "Compiling debug version")
 ifeq ($(CXX),pgc++)
 CPPFLAGS = -std=c++11 -g
-LFLAGS = -O3
+LFLAGS = 
 else
 CPPFLAGS =  -std=c++14 -ggdb
-LFLAGS = -O3 -ggdb #-lmkl_intel_lp64 -lmkl_intel_thread -liomp5 -lmkl_core -lpthread
+LFLAGS = -ggdb #-lmkl_intel_lp64 -lmkl_intel_thread -liomp5 -lmkl_core -lpthread
+endif
+
+endif
+
+ifdef BUILD_WITH_ACC
+$(info 'Compiling with OpenACC')
+ifeq ($(CXX),pgc++)
+CPPFLAGS := $(CPPFLAGS) -acc -ta=tesla -Minfo=accel,vect
 endif
 endif
  

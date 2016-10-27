@@ -198,7 +198,6 @@ void MUSCLReconstruction::compute_face_values()
 	}
 	
 	// boundaries
-	// NOTE: At boundaries, the following leads to a only FIRST order scheme.
 	for(j = 0; j < NVARS; j++)
 	{
 		// extrapolate variables
