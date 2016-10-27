@@ -4,24 +4,29 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter)
 	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), cfl(CFL)
 {
-	x.resize(N+2);
-	dx.resize(N+2);
-	u.resize(N+2);
-	uleft.resize(N+1);
-	uright.resize(N+1);
-	prim.resize(N+2);
-	prleft.resize(N+1);
-	prright.resize(N+1);
-	dudx.resize(N+2);
-	res.resize(N+2);
-	A.resize(N+2);
-	Af.resize(N+1);
-	vol.resize(N+2);
-	nodes.resize(N+1);
+	x = (double*)malloc((N+2)*sizeof(double));
+	dx = (double*)malloc((N+2)*sizeof(double));
+	A = (double*)malloc((N+2)*sizeof(double));
+	Af = (double*)malloc((N+1)*sizeof(double));
+	vol = (double*)malloc((N+2)*sizeof(double));
+	nodes = (double*)malloc((N+1)*sizeof(double));
 
-	for(int i = 0; i < N+2; i++)
+	// TODO: Do for all 2d arrays what is done for u
+	u = (double**)malloc((N+2)*sizeof(double*));
+	u[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+
+	uleft = (double**)malloc((N+1)*sizeof(double*));
+	uright = (double**)malloc((N+1)*sizeof(double*));
+	prim = (double**)malloc((N+2)*sizeof(double*));
+	prleft = (double**)malloc((N+1)*sizeof(double*));
+	prright = (double**)malloc((N+1)*sizeof(double*));
+	dudx = (double**)malloc((N+2)*sizeof(double*));
+	res = (double**)malloc((N+2)*sizeof(double*));
+
+	for(int i = 1; i < N+2; i++)
 	{
-		u[i].resize(NVARS);
+		u[i] = *u + i*NVARS;
+
 		prim[i].resize(NVARS);
 		dudx[i].resize(NVARS);
 		res[i].resize(NVARS);

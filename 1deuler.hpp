@@ -19,22 +19,22 @@
 class Euler1d
 {
 protected:
-	int N;										///< Number of cells
-	std::vector<double> x;						///< Cell centers
-	std::vector<double> dx;						///< (1D) Size of each cell
-	std::vector<double> vol;					///< (3D) Volume of each cell
-	std::vector<double> nodes;					///< Mesh nodes
-	double domlen;								///< Physical length of the domain
-	std::vector<double> A;						///< Cross-sectional areas at cell centers
-	std::vector<double> Af;						///< Cross-sectional areas at interfaces
-	std::vector<std::vector<double>> u;			///< Conserved variables - u[i][0] is density of cell i and so on
-	std::vector<std::vector<double>> prim;		///< Primitive variables - u[i][0] is density of cell i and so on
-	std::vector<std::vector<double>> uleft;		///< Left state of each face
-	std::vector<std::vector<double>> uright;	///< Right state at each face
-	std::vector<std::vector<double>> prleft;	///< Left state of each face in terms of primitive variables
-	std::vector<std::vector<double>> prright;	///< Right state at each face in terms of primitive variables
-	std::vector<std::vector<double>> dudx;		///< Slope of variables in each cell
-	std::vector<std::vector<double>> res;		///< residual
+	int N;							///< Number of cells
+	double* x;						///< Cell centers
+	double* dx;						///< (1D) Size of each cell
+	double* vol;					///< (3D) Volume of each cell
+	double* nodes;					///< Mesh nodes
+	double domlen;					///< Physical length of the domain
+	double* A;						///< Cross-sectional areas at cell centers
+	double* Af;						///< Cross-sectional areas at interfaces
+	double** u;						///< Conserved variables - u[i][0] is density of cell i and so on
+	double** prim;					///< Primitive variables - u[i][0] is density of cell i and so on
+	double** uleft;					///< Left state of each face
+	double** uright;				///< Right state at each face
+	double** prleft;				///< Left state of each face in terms of primitive variables
+	double** prright;				///< Right state at each face in terms of primitive variables
+	double** dudx;					///< Slope of variables in each cell
+	double** res;					///< residual
 	int bcL;									///< left BC type
 	int bcR;									///< right BC type
 	std::vector<double> bcvalL;					///< left boundary value

@@ -3,7 +3,7 @@
 #
 # Make sure environment variables CC and CXX have been set with the compilers to use, or set them below.
 
-NAME = euler1d
+NAME = euler1d-acc
 PREFIX = build
 
 INCLUDES = 
