@@ -6,15 +6,15 @@
 
 #include "reconstruction.hpp"
 
-SlopeReconstruction::SlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+SlopeReconstruction::SlopeReconstruction(const int _N, double const *const _x, double const *const _dx, double const * const * const _u, double * const * const _dudx)
 	: N(_N), x(_x), dx(_dx), u(_u), dudx(_dudx)
 { }
 	
 SlopeReconstruction::~SlopeReconstruction()
 { }
 
-TrivialSlopeReconstruction::TrivialSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
-		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+TrivialSlopeReconstruction::TrivialSlopeReconstruction(const int _N, double const *const _x, double const *const _dx, 
+		double const * const * const _u, double * const * const _dudx)
 	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 { }
 
@@ -25,8 +25,8 @@ void TrivialSlopeReconstruction::compute_slopes()
 			dudx[i][j] = 0;
 }
 
-LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
-		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+LeastSquaresReconstruction::LeastSquaresReconstruction(const int _N, double const *const _x, double const *const _dx, 
+		double const * const * const _u, double * const * const _dudx)
 	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 { }
 
@@ -47,13 +47,11 @@ void LeastSquaresReconstruction::compute_slopes()
 	{
 		dudx[0][j] = (u[1][j] - u[0][j])/(x[1]-x[0]);
 		dudx[N+1][j] = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
-		//dudx[0][j] = 0;
-		//dudx[N+1][j] = 0;
 	}
 }
 
-CentralDifferenceReconstruction::CentralDifferenceReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
-		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx)
+CentralDifferenceReconstruction::CentralDifferenceReconstruction(const int _N, double const *const _x, double const *const _dx, 
+		double const * const * const _u, double * const * const _dudx)
 	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 { }
 
@@ -73,8 +71,8 @@ void CentralDifferenceReconstruction::compute_slopes()
 	}
 }
 
-TVDSlopeReconstruction::TVDSlopeReconstruction(const int _N, const std::vector<double>& _x, const std::vector<double>& _dx, 
-		const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx, std::string _lim)
+TVDSlopeReconstruction::TVDSlopeReconstruction(const int _N, double const *const _x, double const *const _dx, 
+		double const * const * const _u, double * const * const _dudx, std::string _lim)
 	: SlopeReconstruction(_N, _x, _dx, _u, _dudx)
 {
 	if(_lim == "minmod")
@@ -121,16 +119,16 @@ void TVDSlopeReconstruction::compute_slopes()
 	}
 }
 	
-FaceReconstruction::FaceReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
-		std::vector<std::vector<double>>& _uleft, std::vector<std::vector<double>>& _uright)
+FaceReconstruction::FaceReconstruction(const int _N, double const *const _x, double const * const * const _u, double const * const * const _dudx, 
+		double * const * const _uleft, double * const * const _uright)
 	: N(_N), x(_x), u(_u), dudx(_dudx), uleft(_uleft), uright(_uright)
 { }
 	
 FaceReconstruction::~FaceReconstruction()
 { }
 
-MUSCLReconstruction::MUSCLReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
-		std::vector<std::vector<double>>& uleft, std::vector<std::vector<double>>& uright, std::string _limiter, double _k)
+MUSCLReconstruction::MUSCLReconstruction(const int _N, double const *const _x, double const * const * const _u, double const * const * const _dudx, 
+		double * const * const uleft, double * const * const uright, std::string _limiter, double _k)
 	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright), limiter(_limiter)
 {
 	if(limiter == "vanalbada")
@@ -257,8 +255,8 @@ void MUSCLReconstruction::compute_face_values()
 	}
 }
 
-MUSCLReconstructionG::MUSCLReconstructionG(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
-		std::vector<std::vector<double>>& uleft, std::vector<std::vector<double>>& uright, std::string _limiter, double _k)
+MUSCLReconstructionG::MUSCLReconstructionG(const int _N, double const *const _x, double const * const * const _u, double const * const * const _dudx, 
+		double * const * const uleft, double * const * const uright, std::string _limiter, double _k)
 	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright), limiter(_limiter)
 {
 	if(limiter == "vanalbada")
@@ -271,11 +269,6 @@ MUSCLReconstructionG::MUSCLReconstructionG(const int _N, const std::vector<doubl
 		lim = new MinmodLimiter1(SMALL_NUMBER);
 		std::cout << "MUSCLReconstruction: Using minmod limiter" << std::endl;
 	}
-	/*else if(limiter == "hemkerkoren")
-	{
-		lim = new HemkerKorenLimiter();
-		std::cout << "MUSCLReconstruction: Using Hemker-Koren limiter" << std::endl;
-	}*/
 	else
 	{
 		lim = new NoLimiter1(SMALL_NUMBER);
@@ -339,8 +332,8 @@ void MUSCLReconstructionG::compute_face_values()
 	}*/
 }
 
-LinearReconstruction::LinearReconstruction(const int _N, const std::vector<double>& _x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, 
-		std::vector<std::vector<double>>& uleft, std::vector<std::vector<double>>& uright)
+LinearReconstruction::LinearReconstruction(const int _N, double const *const _x, double const * const * const _u, double const * const * const _dudx, 
+		double * const * const uleft, double * const * const uright)
 	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright)
 {
 }

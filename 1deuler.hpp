@@ -95,6 +95,8 @@ public:
 	Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double cfl, std::string inviscidFlux,
 			std::string slope_scheme, std::string face_rec_scheme, std::string limiter, double fTime, int temporal_order, std::string RKfile);
 
+	~Euler1dExplicit();
+
 	void run();
 	
 	void postprocess(std::string outfilename);

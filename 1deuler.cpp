@@ -11,32 +11,37 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	vol = (double*)malloc((N+2)*sizeof(double));
 	nodes = (double*)malloc((N+1)*sizeof(double));
 
-	// TODO: Do for all 2d arrays what is done for u
 	u = (double**)malloc((N+2)*sizeof(double*));
 	u[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	prim = (double**)malloc((N+2)*sizeof(double*));
+	prim[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	dudx = (double**)malloc((N+2)*sizeof(double*));
+	dudx[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	res = (double**)malloc((N+2)*sizeof(double*));
+	res[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 
 	uleft = (double**)malloc((N+1)*sizeof(double*));
+	uleft[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 	uright = (double**)malloc((N+1)*sizeof(double*));
-	prim = (double**)malloc((N+2)*sizeof(double*));
+	uright[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 	prleft = (double**)malloc((N+1)*sizeof(double*));
+	prleft[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 	prright = (double**)malloc((N+1)*sizeof(double*));
-	dudx = (double**)malloc((N+2)*sizeof(double*));
-	res = (double**)malloc((N+2)*sizeof(double*));
+	prright[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 
 	for(int i = 1; i < N+2; i++)
 	{
 		u[i] = *u + i*NVARS;
-
-		prim[i].resize(NVARS);
-		dudx[i].resize(NVARS);
-		res[i].resize(NVARS);
+		prim[i] = *prim + i*NVARS;
+		dudx[i] = *dudx + i*NVARS;
+		res[i] = *res + i*NVARS;
 	}
 	for(int i = 0; i < N+1; i++)
 	{
-		uleft[i].resize(NVARS);
-		uright[i].resize(NVARS);
-		prleft[i].resize(NVARS);
-		prright[i].resize(NVARS);
+		uleft[i] = *uleft + i*NVARS;
+		uright[i] = *uright + i*NVARS;
+		prleft[i] = *prleft + i*NVARS;
+		prright[i] = *prright + i*NVARS;
 	}
 
 	if(inviscid_flux == "vanleer")
@@ -93,6 +98,31 @@ Euler1d::~Euler1d()
 	delete flux;
 	delete cslope;
 	delete rec;
+	
+	free(x);			
+	free(dx);			
+	free(vol);		
+	free(nodes);		
+	free(A);
+	free(Af);
+
+	free(u[0]);			
+	free(prim[0]);		
+	free(uleft[0]);		
+	free(uright[0]);	
+	free(prleft[0]);	
+	free(prright[0]);	
+	free(dudx[0]);		
+	free(res[0]);
+	
+	free(u);
+	free(prim);		
+	free(uleft);		
+	free(uright);	
+	free(prleft);	
+	free(prright);	
+	free(dudx);		
+	free(res);
 }
 
 void Euler1d::generate_mesh(int type, const std::vector<double>& pointlist)
@@ -160,7 +190,11 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 
 void Euler1d::compute_inviscid_fluxes()
 {
-	std::vector<std::vector<double>> fluxes(N+1);
+	//std::vector<std::vector<double>> fluxes(N+1);
+	double** fluxes = (double**)malloc((N+1)*sizeof(double*));
+	fluxes[0] = (double*)malloc(NVARS*(N+1)*sizeof(double));
+	for(int i = 0; i < N+1; i++)
+		fluxes[i] = *fluxes + i*NVARS;
 
 	for(int i = 0; i < N+1; i++)
 		fluxes[i].resize(NVARS);
@@ -179,7 +213,9 @@ void Euler1d::compute_inviscid_fluxes()
 			res[i+1][j] += fluxes[i][j];
 		}
 	}
-	//std::cout << "flux n " << fluxes[N][0] << " " << fluxes[N][1] << std::endl;
+	
+	free(fluxes[0]);
+	free(fluxes);
 }
 
 void Euler1d::compute_source_term()
@@ -326,128 +362,6 @@ void Euler1d::apply_boundary_conditions()
 	}
 	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
-	
-void Euler1d::apply_boundary_conditions_at_left_boundary(std::vector<double>& ul, const std::vector<double>& ur)
-{
-	if(bcL == 0)
-	{
-		// homogeneous Dirichlet - wall
-		ul[0] = ur[0];
-		ul[1] = -ur[1];
-		ul[2] = ur[2];
-	}
-	else if(bcL == 1)
-	{
-		double M_in, c_in, v_in, p_in;
-		v_in = ur[1]/ur[0];
-		p_in = (g-1.0)*(ur[2] - 0.5*ur[0]*v_in*v_in);
-		c_in = sqrt(g*p_in/ur[0]);
-		M_in = v_in/c_in;
-		
-		/*double M_ex, c_ex, v_ex, p_ex;
-		v_ex = ul[1]/ul[0];
-		p_ex = (g-1.0)*(ul[2] - 0.5*ul[0]*v_ex*v_ex);
-		c_ex = sqrt(g*p_ex/ul[0]);
-		M_ex = v_ex/c_ex;
-
-		double M_eff = (M_in+M_ex)/2.0;*/
-		
-		// get fluid state from presribed free-stream conditions
-		double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
-		double c = sqrt(g*R*T);
-		double v = bcvalL[2]*c;
-		double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
-		double rho = p/(R*T);
-		double E = p/(g-1.0) + 0.5*rho*v*v;
-
-		double M_eff = (M_in+bcvalL[2])*0.5;
-
-		if(M_eff >= 1.0)
-		{
-			/// supersonic inflow
-			/// get conserved variables from prescribed pt, Tt and M
-			ul[0] = rho;
-			ul[1] = rho*v;
-			ul[2] = E;
-		}
-		else if(M_eff >= 0)
-		{
-			/// Subsonic inflow
-			/** Get Riemann invarients corresponding to eigenvalues u-c, u and u+c resp.
-			 * Take R1 from interior, and R2 and R3 from free stream
-			 */
-			double R1, R2, R3, vg, cg, pg;
-			R1 = v_in - 2.0*c_in/(g-1.0);
-			R2 = p/pow(rho,g);
-			R3 = v + 2.0*c/(g-1.0);
-			vg = (R3+R1)*0.5;
-			cg = (R3-R1)*(g-1.0)/4.0;
-			ul[0] = pow(cg*cg/(g*R2), 1.0/(g-1.0));
-			pg = ul[0]*cg*cg/g;
-			ul[1] = ul[0]*vg;
-			ul[2] = pg/(g-1.0) + 0.5*ul[0]*vg*vg;
-		}
-		else
-			std::cout << "! Euler1d: apply_boundary_conditions_left(): Error! Inlet is becoming outlet!" << std::endl;
-	}
-	else std::cout << "! Euler1D: apply_boundary_conditions_left(): BC type not recognized!" << std::endl;
-}
-
-void Euler1d::apply_boundary_conditions_at_right_boundary(const std::vector<double>& ul, std::vector<double>& ur)
-{
-	if(bcR == 0)
-	{
-		ur[0] = ul[0];
-		ur[1] = -ul[1];
-		ur[2] = ul[2];
-	}
-	else if(bcR == 3)
-	{
-		// outflow
-		double R1, R2, R3, cold0, pold0, vold0, cold1, pold1, vold, vold1, Minf, pinf, Tinf, rhoinf, vinf, cinf, v, c, p, Meff;
-		pinf = bcvalR[0]; Tinf = bcvalR[1]; Minf = bcvalR[2];
-		rhoinf = pinf/(R*Tinf);
-		cinf = sqrt(g*pinf/rhoinf);
-		vinf = Minf*cinf;
-
-		vold1 = ul[1]/ul[0];
-		pold1 = (g-1.0)*(ul[2]-0.5*ul[0]*vold1*vold1);
-		cold1 = sqrt(g*pold1/ul[0]);
-
-		// previous values at the ghost point we want to set
-		vold0 = ur[1]/ur[0];
-		pold0 = (g-1.0)*(ur[2]-0.5*ur[0]*vold0*vold0);
-		cold0 = sqrt(g*pold0/ur[0]);
-
-		Meff = 0.5*(vold1/cold1 + Minf);
-		
-		if(Meff > 0 && Meff < 1.0)
-			R1 = vinf - 2*cinf/(g-1.0);
-		else if(Meff >= 1)
-			R1 = vold1 - 2*cold1/(g-1.0);
-		else
-			std::cout << "! Euler1d: apply_boundary_conditions_at_right_boundary(): Flow is negative!" << std::endl;
-
-		R2 = pold1/pow(ul[0],g);
-		R3 = vold1 + 2*cold1/(g-1.0);
-
-		v = 0.5*(R3+R1); c = 0.25*(g-1.0)*(R3-R1);
-		ur[0] = pow(c*c/(g*R2), 1.0/(g-1.0));
-		p = ur[0]*c*c/g;
-		ur[1] = ur[0]*v;
-		ur[2] = p/(g-1.0) + 0.5*ur[0]*v*v;
-		
-		/*R3 = vold1 + 2*cold1/(g-1.0);
-
-		v = 0.5*(R3+R1); c = 0.25*(g-1.0)*(R3-R1);
-		p = pinf;
-		ur[0] = g*p/(c*c);
-		ur[1] = ur[0]*v;
-		ur[2] = p/(g-1.0) + 0.5*ur[0]*v*v;*/
-	}
-	else std::cout << "! Euler1D: apply_boundary_conditions_right(): BC type not recognized!" << std::endl;
-}
-
 
 Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs,
 		double CFL, std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double f_time, int temporal_order, std::string RKfile)
@@ -455,8 +369,10 @@ Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, i
 {
 	maxWaveSpeed.resize(N+2);
 	RKCoeffs.resize(temporalOrder);
+	RKCoeffs = (double**)malloc(temporalOrder*sizeof(double*));
+	RKCoeffs[0] = (double*)malloc(temporalOrder*3*sizeof(double));
 	for(int i = 0; i < temporalOrder; i++)
-		RKCoeffs[i].resize(3);
+		RKCoeffs[i] = *RKCoeffs + i*3;
 
 	std::ifstream rkfile(RKfile);
 	for(int i = 0; i < temporalOrder; i++)
@@ -465,6 +381,12 @@ Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, i
 	rkfile.close();
 
 	std::cout << "Euler1dExplicit: Using " << temporalOrder << "-stage TVD RK scheme; loaded coefficients.\n";
+}
+
+Euler1dExplicit::~Euler1dExplicit()
+{
+	free(RKCoeffs[0]);
+	free(RKCoeffs);
 }
 
 void Euler1dExplicit::run()
@@ -493,14 +415,15 @@ void Euler1dExplicit::run()
 			prim[i][2] = 0.1;
 		}
 
-	std::vector<double> c(N+2);
-	std::vector<std::vector<double>> uold, ustage;
-	uold.resize(N+2);
-	ustage.resize(N+2);
+	double* c = (double*)malloc((N+2)*sizeof(double));
+	double** uold = (double**)malloc((N+2)*sizeof(double*));
+	uold[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	double** ustage = (double**)malloc((N+2)*sizeof(double*));
+	ustage[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	for(int i = 0; i < N+2; i++)
 	{
-		uold[i].resize(NVARS);
-		ustage[i].resize(NVARS);
+		uold[i] = *uold + i*NVARS;
+		ustage[i] = *ustage + i*NVARS;
 	}
 
 	while(time < ftime)
@@ -544,8 +467,6 @@ void Euler1dExplicit::run()
 			}
 			cslope->compute_slopes();
 			rec->compute_face_values();
-			/*apply_boundary_conditions_at_left_boundary(uleft[0], uright[0]);
-			apply_boundary_conditions_at_right_boundary(uleft[N], uright[N]);*/
 
 			compute_inviscid_fluxes();
 			compute_source_term();
@@ -562,8 +483,6 @@ void Euler1dExplicit::run()
 			}
 
 			// apply BCs
-			/*apply_boundary_conditions_at_left_boundary(u[0], u[1]);
-			apply_boundary_conditions_at_right_boundary(u[N], u[N+1]);*/
 			apply_boundary_conditions();
 		}
 
@@ -573,6 +492,12 @@ void Euler1dExplicit::run()
 		time += dt;
 		step++;
 	}
+
+	free(c);
+	free(uold[0]);
+	free(uold);
+	free(ustage[0]);
+	free(ustage);
 
 	std::cout << "Euler1dExplicit: run(): Done. Number of time steps = " << step << ", final time = " << time << std::endl;
 }

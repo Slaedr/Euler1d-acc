@@ -1,6 +1,6 @@
 #include "inviscidflux.hpp"
 
-void LocalLaxFriedrichsFlux::compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux)
+void LocalLaxFriedrichsFlux::compute_flux(double const *const uleft, double const *const uright, double const *const flux)
 {
 	double eps = 0.5;
 
@@ -20,7 +20,7 @@ void LocalLaxFriedrichsFlux::compute_flux(const std::vector<double>& uleft, cons
 	flux[2] = 0.5*( uleft[1]/uleft[0]*(uleft[2]+pl) + uright[1]/uright[0]*(uright[2]+pr) - eps*emax*(uright[2]-uleft[2]) );
 }
 
-void LocalLaxFriedrichsFlux::compute_flux_prim(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux)
+void LocalLaxFriedrichsFlux::compute_flux_prim(double const *const uleft, double const *const uright, double const *const flux)
 {
 	double eps = 0.5;
 
@@ -45,14 +45,10 @@ void LocalLaxFriedrichsFlux::compute_flux_prim(const std::vector<double>& uleft,
 	flux[2] = 0.5*( uleft[1]*(El+uleft[2]) + uright[1]*(Er+uright[2]) - eps*emax*(Er-El) );
 }
 
-VanLeerFlux::VanLeerFlux()
+void VanLeerFlux::compute_flux(double const *const uleft, double const *const uright, double const *const flux)
 {
-	fluxL.resize(NVARS);
-	fluxR.resize(NVARS);
-}
-
-void VanLeerFlux::compute_flux(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux)
-{
+	double fluxL[NVARS];
+	double fluxR[NVARS];
 	int j;
 	double Mi, Mj, pi, pj, ci, cj, vi, vj;
 	vi = uleft[1]/uleft[0];
@@ -101,8 +97,10 @@ void VanLeerFlux::compute_flux(const std::vector<double>& uleft, const std::vect
 		flux[j] = fluxL[j] + fluxR[j];
 }
 
-void VanLeerFlux::compute_flux_prim(const std::vector<double>& uleft, const std::vector<double>& uright, std::vector<double>& flux)
+void VanLeerFlux::compute_flux_prim(double const *const uleft, double const *const uright, double const *const flux)
 {
+	double fluxL[NVARS];
+	double fluxR[NVARS];
 	int j;
 	double Mi, Mj, ci, cj;
 	ci = sqrt(g*uleft[2]/uleft[0]);
