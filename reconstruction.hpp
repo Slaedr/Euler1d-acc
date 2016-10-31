@@ -19,12 +19,12 @@ class SlopeReconstruction
 {
 protected:
 	const int N;										///< Number of cells
-	const std::vector<double>& x;						///< Cell centres
-	const std::vector<double>& dx;						///< Cell widths
-	const std::vector<std::vector<double>>& u;			///< Cell-centred variables
-	std::vector<std::vector<double>>& dudx;				///< Cell-centred slopes
+	double const *const x;						///< Cell centres
+	double const *const dx;						///< Cell widths
+	double const *const *const u;			///< Cell-centred variables
+	double * const * const dudx;				///< Cell-centred slopes
 public:
-	SlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	SlopeReconstruction(const int _N, double const *const x, double const *const dx, double const *const *const _u, double * const * const _dudx);
 	virtual ~SlopeReconstruction();
 	virtual void compute_slopes() = 0;
 };
@@ -33,7 +33,7 @@ public:
 class TrivialSlopeReconstruction : public SlopeReconstruction
 {
 public:
-	TrivialSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	TrivialSlopeReconstruction(const int _N, double const *const x, double const *const dx, double const *const *const _u, double * const * const _dudx);
 	void compute_slopes();
 };
 
@@ -41,7 +41,7 @@ public:
 class LeastSquaresReconstruction : public SlopeReconstruction
 {
 public:
-	LeastSquaresReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	LeastSquaresReconstruction(const int _N, double const *const x, double const *const dx, double const *const *const _u, double * const * const _dudx);
 	void compute_slopes();
 };
 
@@ -49,7 +49,7 @@ public:
 class CentralDifferenceReconstruction : public SlopeReconstruction
 {
 public:
-	CentralDifferenceReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, std::vector<std::vector<double>>& _dudx);
+	CentralDifferenceReconstruction(const int _N, double const *const x, double const *const dx, double const *const *const _u, double * const * const _dudx);
 	void compute_slopes();
 };
 
@@ -58,8 +58,8 @@ class TVDSlopeReconstruction : public SlopeReconstruction
 {
 	const SlopeLimiter1* lim;				///< Slope limiter to use
 public:
-	TVDSlopeReconstruction(const int _N, const std::vector<double>& x, const std::vector<double>& dx, const std::vector<std::vector<double>>& _u, 
-			std::vector<std::vector<double>>& _dudx, std::string limiter);
+	TVDSlopeReconstruction(const int _N, double const *const x, double const *const dx, double const *const *const _u, 
+			double * const * const _dudx, std::string limiter);
 	~TVDSlopeReconstruction();
 	void compute_slopes();
 };
@@ -70,14 +70,14 @@ class FaceReconstruction
 {
 protected:
 	const int N;										///< Number of cells
-	const std::vector<double>& x;						///< Positions of cell centres
-	const std::vector<std::vector<double>>& u;			///< Cell-centred variables
-	const std::vector<std::vector<double>>& dudx;		///< Cell-centred slopes
-	std::vector<std::vector<double>>& uleft;			///< Left value at each face
-	std::vector<std::vector<double>>& uright;			///< Right value at each face
+	double const *const x;						///< Positions of cell centres
+	double const *const *const u;			///< Cell-centred variables
+	double const *const *const dudx;		///< Cell-centred slopes
+	double * const * const uleft;			///< Left value at each face
+	double * const * const uright;			///< Right value at each face
 public:
-	FaceReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright);
+	FaceReconstruction(const int _N, double const *const x, double const *const *const _u, double const *const *const _dudx, double * const * const uleft,
+			double * const * const uright);
 	virtual ~FaceReconstruction();
 	virtual void compute_face_values() = 0;
 };
@@ -88,8 +88,8 @@ class MUSCLReconstruction : public FaceReconstruction
 	std::string limiter;								///< String describing the limiter to use
 	const Limiter* lim;									///< Slope limiter to use
 public:
-	MUSCLReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);
+	MUSCLReconstruction(const int _N, double const *const x, double const *const *const _u, double const *const *const _dudx, double * const * const uleft,
+			double * const * const uright, std::string _limiter, double _k);
 	~MUSCLReconstruction();
 	void compute_face_values();
 };
@@ -100,8 +100,8 @@ class MUSCLReconstructionG : public FaceReconstruction
 	std::string limiter;								///< String describing the limiter to use
 	const SlopeLimiter1* lim;							///< Slope limiter to use
 public:
-	MUSCLReconstructionG(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);
+	MUSCLReconstructionG(const int _N, double const *const x, double const *const *const _u, double const *const *const _dudx, double * const * const uleft,
+			double * const * const uright, std::string _limiter, double _k);
 	~MUSCLReconstructionG();
 	void compute_face_values();
 };
@@ -109,8 +109,8 @@ public:
 class LinearReconstruction : public FaceReconstruction
 {
 public:
-	LinearReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright);
+	LinearReconstruction(const int _N, double const *const x, double const *const *const _u, double const *const *const _dudx, double * const * const uleft,
+			double * const * const uright);
 	void compute_face_values();
 };
 
@@ -119,8 +119,8 @@ public:
 	double k;											///< Controls order of reconstruction; people generally use 1/3
 	const SlopeLimiter* lim;							///< Slope limiter to use
 public:
-	MUSCLReconstruction(const int _N, const std::vector<double>& x, const std::vector<std::vector<double>>& _u, const std::vector<std::vector<double>>& _dudx, std::vector<std::vector<double>>& uleft,
-			std::vector<std::vector<double>>& uright, std::string _limiter, double _k);
+	MUSCLReconstruction(const int _N, double const *const x, double const *const *const _u, double const *const *const _dudx, double * const * const uleft,
+			double * const * const uright, std::string _limiter, double _k);
 	~MUSCLReconstruction();
 	void compute_face_values();
 };*/

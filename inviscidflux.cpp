@@ -1,5 +1,19 @@
 #include "inviscidflux.hpp"
 
+InviscidFlux::InviscidFlux()
+{
+#pragma acc enter data copyin(this)
+}
+
+InviscidFlux::~InviscidFlux()
+{
+#pragma acc exit data delete(this)
+}
+
+LocalLaxFriedrichsFlux::LocalLaxFriedrichsFlux() : InviscidFlux()
+{
+}
+
 void LocalLaxFriedrichsFlux::compute_flux(double const *const uleft, double const *const uright, double const *const flux)
 {
 	double eps = 0.5;
@@ -43,6 +57,10 @@ void LocalLaxFriedrichsFlux::compute_flux_prim(double const *const uleft, double
 	flux[0] = 0.5*( uleft[0]*uleft[1] + uright[0]*uright[1] - eps*emax*(uright[0]-uleft[0]) );
 	flux[1] = 0.5*( uleft[1]*uleft[1]*uleft[0] + uleft[2] + uright[1]*uright[1]*uright[0] + uright[2] - eps*emax*(uright[0]*uright[1]-uleft[0]*uleft[1]) );
 	flux[2] = 0.5*( uleft[1]*(El+uleft[2]) + uright[1]*(Er+uright[2]) - eps*emax*(Er-El) );
+}
+
+VanLeerFlux::VanLeerFlux() : InviscidFlux()
+{
 }
 
 void VanLeerFlux::compute_flux(double const *const uleft, double const *const uright, double const *const flux)

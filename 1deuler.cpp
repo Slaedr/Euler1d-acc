@@ -20,10 +20,10 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	res = (double**)malloc((N+2)*sizeof(double*));
 	res[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 
-	uleft = (double**)malloc((N+1)*sizeof(double*));
+	/*uleft = (double**)malloc((N+1)*sizeof(double*));
 	uleft[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 	uright = (double**)malloc((N+1)*sizeof(double*));
-	uright[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
+	uright[0] = (double*)malloc((N+1)*NVARS*sizeof(double));*/
 	prleft = (double**)malloc((N+1)*sizeof(double*));
 	prleft[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 	prright = (double**)malloc((N+1)*sizeof(double*));
@@ -38,8 +38,8 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	}
 	for(int i = 0; i < N+1; i++)
 	{
-		uleft[i] = *uleft + i*NVARS;
-		uright[i] = *uright + i*NVARS;
+		/*uleft[i] = *uleft + i*NVARS;
+		uright[i] = *uright + i*NVARS;*/
 		prleft[i] = *prleft + i*NVARS;
 		prright[i] = *prright + i*NVARS;
 	}
@@ -91,6 +91,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		rec = new LinearReconstruction(N,x,prim,dudx,prleft,prright);
 		std::cout << "Euler1d: Using Linear Taylor expansion reconstruction." << std::endl;
 	}
+
 }
 
 Euler1d::~Euler1d()
@@ -108,8 +109,8 @@ Euler1d::~Euler1d()
 
 	free(u[0]);			
 	free(prim[0]);		
-	free(uleft[0]);		
-	free(uright[0]);	
+	//free(uleft[0]);		
+	//free(uright[0]);	
 	free(prleft[0]);	
 	free(prright[0]);	
 	free(dudx[0]);		
@@ -117,8 +118,8 @@ Euler1d::~Euler1d()
 	
 	free(u);
 	free(prim);		
-	free(uleft);		
-	free(uright);	
+	//free(uleft);		
+	//free(uright);	
 	free(prleft);	
 	free(prright);	
 	free(dudx);		
@@ -190,14 +191,12 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 
 void Euler1d::compute_inviscid_fluxes()
 {
-	//std::vector<std::vector<double>> fluxes(N+1);
 	double** fluxes = (double**)malloc((N+1)*sizeof(double*));
 	fluxes[0] = (double*)malloc(NVARS*(N+1)*sizeof(double));
 	for(int i = 0; i < N+1; i++)
 		fluxes[i] = *fluxes + i*NVARS;
 
-	for(int i = 0; i < N+1; i++)
-		fluxes[i].resize(NVARS);
+	#pragma acc enter data create(fluxes[:N+1][:NVARS])
 
 	// iterate over interfaces
 	for(int i = 0; i < N+1; i++)
@@ -214,16 +213,17 @@ void Euler1d::compute_inviscid_fluxes()
 		}
 	}
 	
+	#pragma acc exit data delete(fluxes)
+
 	free(fluxes[0]);
 	free(fluxes);
 }
 
 void Euler1d::compute_source_term()
 {
-	double p;
 	for(int i = 1; i <= N; i++)
 	{
-		p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
+		double p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
 		res[i][1] += p*(Af[i] - Af[i-1]);
 	}
 }
@@ -367,8 +367,6 @@ Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, i
 		double CFL, std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double f_time, int temporal_order, std::string RKfile)
 	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, CFL, inviscid_flux, slope_scheme, face_extrap_scheme, limiter), ftime(f_time), temporalOrder(temporal_order)
 {
-	maxWaveSpeed.resize(N+2);
-	RKCoeffs.resize(temporalOrder);
 	RKCoeffs = (double**)malloc(temporalOrder*sizeof(double*));
 	RKCoeffs[0] = (double*)malloc(temporalOrder*3*sizeof(double));
 	for(int i = 0; i < temporalOrder; i++)
@@ -426,6 +424,9 @@ void Euler1dExplicit::run()
 		ustage[i] = *ustage + i*NVARS;
 	}
 
+	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], N, cfl)
+	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
+
 	while(time < ftime)
 	{
 		int i,j;
@@ -440,17 +441,19 @@ void Euler1dExplicit::run()
 		
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
+		mws = 1e10;
 		for(i = 1; i < N+1; i++)
 		{
 			c[i] = sqrt( g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0] );
 		}
 
-		double mws = dx[1]/(fabs(u[1][1]) + c[1]);
-		double a;
+		//double mws = dx[1]/(fabs(u[1][1]) + c[1]);
 		for(i = 2; i < N+1; i++)
 		{
 			a = dx[i]/(fabs(u[i][1]) + c[i]);
-			if(a < mws) mws = a;
+			if(a < mws) {
+				mws = a;
+			}
 		}
 
 		dt = cfl*mws;
@@ -492,6 +495,9 @@ void Euler1dExplicit::run()
 		time += dt;
 		step++;
 	}
+	
+	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], N, cfl)
+	#pragma acc exit data delete(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	free(c);
 	free(uold[0]);
@@ -599,10 +605,8 @@ void Euler1dSteadyExplicit::run()
 			}
 		}
 
-		cslope->compute_slopes();
+		//cslope->compute_slopes();
 		rec->compute_face_values();
-		/*apply_boundary_conditions_at_left_boundary(uleft[0], uright[0]);
-		apply_boundary_conditions_at_right_boundary(uleft[N], uright[N]);*/
 
 		compute_inviscid_fluxes();
 		compute_source_term();
@@ -638,8 +642,6 @@ void Euler1dSteadyExplicit::run()
 		}
 
 		// apply BCs
-		/*apply_boundary_conditions_at_left_boundary(u[0], u[1]);
-		apply_boundary_conditions_at_right_boundary(u[N], u[N+1]);*/
 		apply_boundary_conditions();
 
 		if(step % 10 == 0)
