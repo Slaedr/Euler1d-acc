@@ -28,44 +28,4 @@ const double muscl_k = 1.0/3.0;
 
 void matprint(const std::vector<std::vector<double>>& mat);
 
-/*
-template<typename T>
-class Device1dArray
-{
-protected:
-	T* data;
-	int size;
-	bool alloc;
-public:
-	void allocate(int sz)
-	{
-		size = sz;
-		data = new T[size];
-		alloc = true;
-	}
-	~Device1dArray()
-	{
-		if(alloc)
-			delete [] data;
-	}
-
-	T& operator[](const int i)
-	{
-		return data[i];
-	}
-
-	const T& operator[](const int i)
-	{
-		return data[i];
-	}
-};
-
-template <typename T>
-class Device2dArray
-{
-protected:
-	T** data;
-};
-*/
-
 #endif
