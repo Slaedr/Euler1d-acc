@@ -37,8 +37,8 @@ protected:
 	double** res;					///< residual
 	int bcL;									///< left BC type
 	int bcR;									///< right BC type
-	std::vector<double> bcvalL;					///< left boundary value
-	std::vector<double> bcvalR;					///< right boundary value
+	double bcvalL[NVARS];						///< left boundary value
+	double bcvalR[NVARS];						///< right boundary value
 	InviscidFlux* flux;							///< Inviscid flux computation context
 	SlopeReconstruction* cslope;				///< Slope reconstruction context
 	FaceReconstruction* rec;					///< Context responsible for computation of face values of flow variables from their cell-centred values

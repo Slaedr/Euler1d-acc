@@ -8,3 +8,5 @@ Two variants of MUSCL have been implemented - MUSCLReconstructionG based on leas
 Accelerator-enabled
 -------------------
 The code is being designed to take advantage of accelerator devices via OpenACC. For this to work, array storage was converted from `std::vector` to C-style arrays using `malloc()` and `free()`.
+Notes:
+- Currently, C-style arrays are being used. Try the Array1d and Array2d classes which implement single-pointer flattened storage. `arr[i][j]` type access is enabled by operator overloading. This would ensure that arrays remain contiguous in GPU memory, which I think does not happen now. It would also use less storage.

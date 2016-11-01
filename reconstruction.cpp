@@ -157,105 +157,111 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, double const *const _x, d
 		std::cout << "MUSCLReconstruction: Caution: not using any limiter.\n";
 	}
 
-#pragma acc enter data copyin(this) copyin(lim, k)
+	#pragma acc enter data copyin(this) copyin(lim, k, N)
 
 }
 
 MUSCLReconstruction::~MUSCLReconstruction()
 {
-#pragma acc exit data delete(lim, k, this)
+	#pragma acc exit data delete(lim, k, N, this)
 	delete lim;
 }
 
 void MUSCLReconstruction::compute_face_values()
 {
-	int i, j, k;
-	double denL, denR, num, rL, rR;
-
 	// interior faces
-	for(i = 1; i <= N-1; i++)
+	#pragma acc kernels present(uleft, uright, u, lim, k, N) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 	{
-		for(j = 0; j < NVARS; j++)
+		#pragma acc loop independent gang worker vector
+		for(size_t i = 1; i <= N-1; i++)
 		{
-			denL = u[i][j]-u[i-1][j];
-			denR = u[i+2][j]-u[i+1][j];
-			num = u[i+1][j]-u[i][j];
-
-			if(fabs(denL) > ZERO_TOL*10)
+			double denL, denR, num, rL, rR;
+			for(size_t j = 0; j < NVARS; j++)
 			{
-				rL = num/denL;
-				uleft[i][j] = u[i][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
-			}
-			else
-				uleft[i][j] = u[i][j];
+				denL = u[i][j]-u[i-1][j];
+				denR = u[i+2][j]-u[i+1][j];
+				num = u[i+1][j]-u[i][j];
 
-			if(fabs(denR) > ZERO_TOL*10)
-			{
-				rR = num/denR;
-				uright[i][j] = u[i+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+				if(fabs(denL) > ZERO_TOL*10)
+				{
+					rL = num/denL;
+					uleft[i][j] = u[i][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+				}
+				else
+					uleft[i][j] = u[i][j];
+
+				if(fabs(denR) > ZERO_TOL*10)
+				{
+					rR = num/denR;
+					uright[i][j] = u[i+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+				}
+				else
+					uright[i][j] = u[i+1][j];
 			}
-			else
-				uright[i][j] = u[i+1][j];
 		}
 	}
 	
 	// boundaries
-	for(j = 0; j < NVARS; j++)
+	#pragma acc parallel present(uleft, uright, u, lim, k, N) num_gangs(1)
 	{
-		// extrapolate variables
+		double denL, denR, num, rL, rR;
 		double slope, cc, um0, xm0, umN, xmN;
-
-		slope = (u[1][j] - u[0][j])/(x[1]-x[0]);
-		cc = u[0][j] - (u[1][j]-u[0][j])/(x[1]-x[0])*x[0];
-		xm0 = x[0] - (x[1]-x[0]);
-		um0 = slope*xm0 + cc;
-
-		slope = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
-		cc = u[N][j] - (u[N+1][j]-u[N][j])/(x[N+1]-x[N])*x[N];
-		xmN = x[N+1] + x[N]-x[N-1];
-		umN = slope*xmN + cc;
-
-		// left
-		denL = u[0][j] - um0;
-		denR = u[2][j]-u[1][j];
-		num = u[1][j]-u[0][j];
-
-		if(fabs(denL) > ZERO_TOL*10)
+		for(j = 0; j < NVARS; j++)
 		{
-			rL = num/denL;
-			uleft[0][j] = u[0][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
-		}
-		else
-			uleft[0][j] = u[0][j];
+			// extrapolate variables
 
-		if(fabs(denR) > ZERO_TOL*10)
-		{
-			rR = num/denR;
-			uright[0][j] = u[1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
-		}
-		else
-			uright[0][j] = u[1][j];
-		
-		// right
-		denL = u[N][j]-u[N-1][j];
-		denR = umN - u[N+1][j];
-		num = u[N+1][j]-u[N][j];
+			slope = (u[1][j] - u[0][j])/(x[1]-x[0]);
+			cc = u[0][j] - (u[1][j]-u[0][j])/(x[1]-x[0])*x[0];
+			xm0 = x[0] - (x[1]-x[0]);
+			um0 = slope*xm0 + cc;
 
-		if(fabs(denL) > ZERO_TOL*10)
-		{
-			rL = num/denL;
-			uleft[N][j] = u[N][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
-		}
-		else
-			uleft[N][j] = u[N][j];
+			slope = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
+			cc = u[N][j] - (u[N+1][j]-u[N][j])/(x[N+1]-x[N])*x[N];
+			xmN = x[N+1] + x[N]-x[N-1];
+			umN = slope*xmN + cc;
 
-		if(fabs(denR) > ZERO_TOL*10)
-		{
-			rR = num/denR;
-			uright[N][j] = u[N+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+			// left
+			denL = u[0][j] - um0;
+			denR = u[2][j]-u[1][j];
+			num = u[1][j]-u[0][j];
+
+			if(fabs(denL) > ZERO_TOL*10)
+			{
+				rL = num/denL;
+				uleft[0][j] = u[0][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+			}
+			else
+				uleft[0][j] = u[0][j];
+
+			if(fabs(denR) > ZERO_TOL*10)
+			{
+				rR = num/denR;
+				uright[0][j] = u[1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+			}
+			else
+				uright[0][j] = u[1][j];
+			
+			// right
+			denL = u[N][j]-u[N-1][j];
+			denR = umN - u[N+1][j];
+			num = u[N+1][j]-u[N][j];
+
+			if(fabs(denL) > ZERO_TOL*10)
+			{
+				rL = num/denL;
+				uleft[N][j] = u[N][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+			}
+			else
+				uleft[N][j] = u[N][j];
+
+			if(fabs(denR) > ZERO_TOL*10)
+			{
+				rR = num/denR;
+				uright[N][j] = u[N+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+			}
+			else
+				uright[N][j] = u[N+1][j];
 		}
-		else
-			uright[N][j] = u[N+1][j];
 	}
 }
 

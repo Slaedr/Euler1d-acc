@@ -2,7 +2,7 @@
 
 Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double CFL, 
 		std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter)
-	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), bcvalL(leftBVs), bcvalR(rightBVs), cfl(CFL)
+	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), cfl(CFL)
 {
 	x = (double*)malloc((N+2)*sizeof(double));
 	dx = (double*)malloc((N+2)*sizeof(double));
@@ -28,6 +28,12 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	prleft[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
 	prright = (double**)malloc((N+1)*sizeof(double*));
 	prright[0] = (double*)malloc((N+1)*NVARS*sizeof(double));
+
+	for(int i = 0; i < NVARS; i++)
+	{
+		bcvalL[i] = leftBVs[i];
+		bcvalR[i] = rightBVs[i];
+	}
 
 	for(int i = 1; i < N+2; i++)
 	{
@@ -196,35 +202,39 @@ void Euler1d::compute_inviscid_fluxes()
 	for(int i = 0; i < N+1; i++)
 		fluxes[i] = *fluxes + i*NVARS;
 
-	#pragma acc enter data create(fluxes[:N+1][:NVARS])
-
-	// iterate over interfaces
-	for(int i = 0; i < N+1; i++)
+	#pragma acc kernels present(g,N, prleft, prright, Af, res) create(fluxes[:N+1][:NVARS]) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 	{
-		//flux->compute_flux(uleft[i], uright[i], fluxes[i]);
-		flux->compute_flux_prim(prleft[i], prright[i], fluxes[i]);
-
-		// update residual
-		for(int j = 0; j < NVARS; j++)
+		// iterate over interfaces
+		#pragma acc loop independent gang worker vector
+		for(int i = 0; i < N+1; i++)
 		{
-			fluxes[i][j] *= Af[i];
-			res[i][j] -= fluxes[i][j];
-			res[i+1][j] += fluxes[i][j];
+			//flux->compute_flux(uleft[i], uright[i], fluxes[i]);
+			flux->compute_flux_prim(prleft[i], prright[i], fluxes[i]);
+
+			// update residual
+			for(int j = 0; j < NVARS; j++)
+			{
+				fluxes[i][j] *= Af[i];
+				res[i][j] -= fluxes[i][j];
+				res[i+1][j] += fluxes[i][j];
+			}
 		}
 	}
 	
-	#pragma acc exit data delete(fluxes)
-
 	free(fluxes[0]);
 	free(fluxes);
 }
 
 void Euler1d::compute_source_term()
 {
-	for(int i = 1; i <= N; i++)
+	#pragma acc kernels present(N, u, Af, res) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 	{
-		double p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
-		res[i][1] += p*(Af[i] - Af[i-1]);
+		#pragma acc loop independent gang worker vector
+		for(int i = 1; i <= N; i++)
+		{
+			double p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
+			res[i][1] += p*(Af[i] - Af[i-1]);
+		}
 	}
 }
 
@@ -302,10 +312,12 @@ void Euler1d::apply_boundary_conditions()
 			M = v/c;
 			std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;*/
 		}
+#ifndef _OPENACC
 		else
 			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
+#endif
 	}
-	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+	//else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 
 	if(bcR == 0)
 	{
@@ -360,7 +372,7 @@ void Euler1d::apply_boundary_conditions()
 		prim[N+1][1] = vold+dv;
 		prim[N+1][2] = p;
 	}
-	else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+	//else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 
 Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs,
@@ -424,18 +436,21 @@ void Euler1dExplicit::run()
 		ustage[i] = *ustage + i*NVARS;
 	}
 
-	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], N, cfl)
-	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
+	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl)
+	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, istage, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	while(time < ftime)
 	{
 		int i,j;
-		for(i = 0; i < N+2; i++)
+
+		#pragma acc update self(u)
+
+		#pragma acc parallel loop present(N, u, uold) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+		for(int i = 0; i < N+2; i++)
 		{
-			for(j = 0; j < NVARS; j++)
+			for(int j = 0; j < NVARS; j++)
 			{
 				uold[i][j] = u[i][j];
-				res[i][j] = 0;
 			}
 		}
 		
@@ -458,23 +473,37 @@ void Euler1dExplicit::run()
 
 		dt = cfl*mws;
 
+		#pragma ac update device(dt)
+
+		// NOTE: moved apply_boundary_conditions() to the top of the inner loop
 		for(istage = 0; istage < temporalOrder; istage++)
 		{
-			for(i = 0; i < N+2; i++)
+			// apply BCs
+			#pragma acc parallel present(prim, u, bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR) num_gangs(1)
 			{
-				for(j = 0; j < NVARS; j++)
+				apply_boundary_conditions();
+			}
+
+			#pragma acc parallel loop present(u, ustage, res, N) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			for(int i = 0; i < N+2; i++)
+			{
+				for(int j = 0; j < NVARS; j++)
 				{
 					ustage[i][j] = u[i][j];
 					res[i][j] = 0;
 				}
 			}
+
 			cslope->compute_slopes();
+
 			rec->compute_face_values();
 
 			compute_inviscid_fluxes();
+
 			compute_source_term();
 
 			// RK stage
+			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 			for(i = 1; i < N+1; i++)
 			{
 				for(j = 0; j < NVARS; j++)
@@ -485,8 +514,6 @@ void Euler1dExplicit::run()
 				prim[i][2] = (g-1.0)*(u[i][2] - 0.5*u[i][1]*prim[i][1]);
 			}
 
-			// apply BCs
-			apply_boundary_conditions();
 		}
 
 		if(step % 10 == 0)
@@ -495,8 +522,10 @@ void Euler1dExplicit::run()
 		time += dt;
 		step++;
 	}
+
+	#pragma update self(u, prim)
 	
-	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], N, cfl)
+	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl)
 	#pragma acc exit data delete(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	free(c);
