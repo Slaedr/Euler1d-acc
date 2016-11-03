@@ -14,7 +14,7 @@ LocalLaxFriedrichsFlux::LocalLaxFriedrichsFlux() : InviscidFlux()
 {
 }
 
-void LocalLaxFriedrichsFlux::compute_flux(double const *const uleft, double const *const uright, double const *const flux)
+void LocalLaxFriedrichsFlux::compute_flux(double const *const uleft, double const *const uright, double *const flux)
 {
 	double eps = 0.5;
 
@@ -34,7 +34,7 @@ void LocalLaxFriedrichsFlux::compute_flux(double const *const uleft, double cons
 	flux[2] = 0.5*( uleft[1]/uleft[0]*(uleft[2]+pl) + uright[1]/uright[0]*(uright[2]+pr) - eps*emax*(uright[2]-uleft[2]) );
 }
 
-void LocalLaxFriedrichsFlux::compute_flux_prim(double const *const uleft, double const *const uright, double const *const flux)
+void LocalLaxFriedrichsFlux::compute_flux_prim(double const *const uleft, double const *const uright, double *const flux)
 {
 	double eps = 0.5;
 
@@ -63,7 +63,7 @@ VanLeerFlux::VanLeerFlux() : InviscidFlux()
 {
 }
 
-void VanLeerFlux::compute_flux(double const *const uleft, double const *const uright, double const *const flux)
+void VanLeerFlux::compute_flux(double const *const uleft, double const *const uright, double *const flux)
 {
 	double fluxL[NVARS];
 	double fluxR[NVARS];
@@ -115,7 +115,7 @@ void VanLeerFlux::compute_flux(double const *const uleft, double const *const ur
 		flux[j] = fluxL[j] + fluxR[j];
 }
 
-void VanLeerFlux::compute_flux_prim(double const *const uleft, double const *const uright, double const *const flux)
+void VanLeerFlux::compute_flux_prim(double const *const uleft, double const *const uright, double *const flux)
 {
 	double fluxL[NVARS];
 	double fluxR[NVARS];

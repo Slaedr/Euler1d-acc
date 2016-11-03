@@ -108,7 +108,7 @@ class Euler1dSteadyExplicit : public Euler1d
 {
 	double tol;
 	int maxiter;
-	double mws									///< for computing time steps
+	double mws;									///< for computing time steps
 
 public:
 	Euler1dSteadyExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs, double cfl, std::string inviscidFlux,

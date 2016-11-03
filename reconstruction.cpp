@@ -206,7 +206,7 @@ void MUSCLReconstruction::compute_face_values()
 	{
 		double denL, denR, num, rL, rR;
 		double slope, cc, um0, xm0, umN, xmN;
-		for(j = 0; j < NVARS; j++)
+		for(int j = 0; j < NVARS; j++)
 		{
 			// extrapolate variables
 

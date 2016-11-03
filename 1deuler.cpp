@@ -284,7 +284,7 @@ void Euler1d::apply_boundary_conditions()
 			// subsonic inflow
 			// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
 			double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
-			std::vector<double> uold0 = u[0];
+			double* uold0 = u[0];
 			vold = uold0[1]/uold0[0];
 			pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
 			cold = sqrt( g*pold/uold0[0] );
@@ -332,7 +332,7 @@ void Euler1d::apply_boundary_conditions()
 	{
 		// outflow
 		double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
-		std::vector<double> uold = u[N+1];
+		double* uold = u[N+1];
 		vold = uold[1]/uold[0];
 		pold = (g-1.0)*(uold[2]-0.5*uold[0]*vold*vold);
 		cold = sqrt(g*pold/uold[0]);
@@ -556,7 +556,6 @@ Euler1dSteadyExplicit::Euler1dSteadyExplicit(int num_cells, double length, int l
 		double CFL, std::string inviscidFlux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter, double toler, int max_iter)
 	: Euler1d(num_cells,length,leftBCflag,rightBCflag,leftBVs,rightBVs, CFL, inviscidFlux, slope_scheme, face_extrap_scheme, limiter), tol(toler), maxiter(max_iter)
 {
-	maxWaveSpeed.resize(N+2);
 }
 
 void Euler1dSteadyExplicit::run()
