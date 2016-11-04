@@ -2,12 +2,12 @@
 
 InviscidFlux::InviscidFlux()
 {
-#pragma acc enter data copyin(this)
+	#pragma acc enter data copyin(this)
 }
 
 InviscidFlux::~InviscidFlux()
 {
-#pragma acc exit data delete(this)
+	#pragma acc exit data delete(this)
 }
 
 LocalLaxFriedrichsFlux::LocalLaxFriedrichsFlux() : InviscidFlux()
@@ -116,6 +116,54 @@ void VanLeerFlux::compute_flux(double const *const uleft, double const *const ur
 }
 
 void VanLeerFlux::compute_flux_prim(double const *const uleft, double const *const uright, double *const flux)
+{
+	double fluxL[NVARS];
+	double fluxR[NVARS];
+	int j;
+	double Mi, Mj, ci, cj;
+	ci = sqrt(g*uleft[2]/uleft[0]);
+	Mi = uleft[1]/ci;
+	
+	cj = sqrt(g*uright[2]/uright[0]);
+	Mj = uright[1]/cj;
+
+	if(Mi <= -1)
+		for(j = 0; j < NVARS; j++)
+			fluxL[j] = 0;
+	else if(Mi <= 1)
+	{
+		fluxL[0] = 0.25*uleft[0]*ci*(Mi+1)*(Mi+1);
+		fluxL[1] = fluxL[0]* ((g-1)*Mi + 2)*ci/g;
+		fluxL[2] = fluxL[0]* (((g-1)*Mi + 2)*ci)*(((g-1)*Mi + 2)*ci)/(2*(g*g-1.0));
+	}
+	else if(Mi > 1.0)
+	{
+		fluxL[0] = uleft[0]*uleft[1];
+		fluxL[1] = uleft[0]*uleft[1]*uleft[1] + uleft[2];
+		fluxL[2] = uleft[1]*(uleft[2]/(g-1.0)+0.5*uleft[0]*uleft[1]*uleft[1] + uleft[2]);
+	}
+
+	if(Mj >= 1.0)
+		for(j = 0; j < NVARS; j++)
+			fluxR[j] = 0;
+	else if(Mj >= -1.0)
+	{
+		fluxR[0] = -0.25*uright[0]*cj*(Mj-1)*(Mj-1);
+		fluxR[1] = fluxR[0]* ((g-1)*Mj - 2)*cj/g;
+		fluxR[2] = fluxR[0]* (((g-1)*Mj - 2)*cj)*(((g-1)*Mj - 2)*cj)/(2*(g*g-1.0));
+	}
+	else
+	{
+		fluxR[0] = uright[0]*uright[1];
+		fluxR[1] = uright[0]*uright[1]*uright[1] + uright[2];
+		fluxR[2] = uright[1]*(uright[2]/(g-1.0)+0.5*uright[0]*uright[1]*uright[1] + uright[2]);
+	}
+
+	for(j = 0; j < NVARS; j++)
+		flux[j] = fluxL[j] + fluxR[j];
+}
+
+void compute_vanleerflux_prim(double const *const uleft, double const *const uright, double *const flux)
 {
 	double fluxL[NVARS];
 	double fluxR[NVARS];

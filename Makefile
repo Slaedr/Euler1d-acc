@@ -19,7 +19,7 @@ ifndef DEBUG
   $(info "Compiling with optimizations, without debug data")
   ifeq ($(CXX),pgc++)
     $(info "Setting flags for pgc++")
-    CPPFLAGS = -std=c++11 -O3 -Msafeptr=all -fast -Minfo=vect #-Minfo=inline
+    CPPFLAGS = -std=c++11 -O3 -Msafeptr=all -fast #-Minfo=vect -Minfo=inline
     LFLAGS = -O3
   else
     CPPFLAGS =  -std=c++14 -O3 -Winline -ftree-vectorizer-verbose=2
@@ -43,7 +43,8 @@ endif
 ifdef BUILD_WITH_ACC
   $(info 'Compiling with OpenACC')
   ifeq ($(CXX),pgc++)
-    CPPFLAGS := $(CPPFLAGS) -acc -ta=tesla -Minfo=accel
+    CPPFLAGS := $(CPPFLAGS) -ta=tesla -Minfo=accel
+    LFLAGS := $(LFLAGS) -ta=tesla
   endif
 endif
  

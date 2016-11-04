@@ -18,8 +18,10 @@ public:
 	InviscidFlux();
 
 	/// Compute flux from converved variables at left and right of faces
+	#pragma acc routine seq
 	virtual void compute_flux(double const *const uleft, double const *const uright, double *const flux) = 0;
 	/// Compute flux from primitive variables at left and right of faces
+	#pragma acc routine seq
 	virtual void compute_flux_prim(double const *const uleft, double const *const uright, double *const flux) = 0;
 
 	~InviscidFlux();
@@ -30,7 +32,9 @@ class LocalLaxFriedrichsFlux : public InviscidFlux
 public:
 	LocalLaxFriedrichsFlux();
 
+	#pragma acc routine seq
 	void compute_flux(double const *const uleft, double const *const uright, double *const flux);
+	#pragma acc routine seq
 	void compute_flux_prim(double const *const uleft, double const *const uright, double *const flux);
 };
 
@@ -40,9 +44,14 @@ class VanLeerFlux : public InviscidFlux
 public:
 	VanLeerFlux();
 
+	#pragma acc routine seq
 	void compute_flux(double const *const uleft, double const *const uright, double *const flux);
+	#pragma acc routine seq
 	void compute_flux_prim(double const *const uleft, double const *const uright, double *const flux);
 };
+
+#pragma acc routine seq
+void compute_vanleerflux_prim(double const *const uleft, double const *const uright, double *const flux);
 
 #endif
 

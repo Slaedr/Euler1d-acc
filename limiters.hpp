@@ -92,4 +92,7 @@ public:
 	double limiter_function(double r) const;
 };
 
+#pragma acc routine seq
+double vanalbada_limiter_function(double r);
+
 #endif

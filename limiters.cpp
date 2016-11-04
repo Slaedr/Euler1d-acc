@@ -44,7 +44,7 @@ double NoLimiter::limiter_function(double r) const
 	return 1.0;
 }
 
-double VanAlbadaLimiter::limiter_function(double r) const
+inline double VanAlbadaLimiter::limiter_function(double r) const
 {
 	return 2.0*r/(1.0+r*r);
 }
@@ -63,4 +63,9 @@ double MinmodLimiter::limiter_function(double r) const
 double VanLeerLimiter::limiter_function(double r) const
 {
 	return (r + fabs(r))/(1 + fabs(r));
+}
+
+inline double vanalbada_limiter_function(double r)
+{
+	return 2.0*r/(1.0+r*r);
 }

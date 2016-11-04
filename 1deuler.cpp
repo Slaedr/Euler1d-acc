@@ -202,14 +202,14 @@ void Euler1d::compute_inviscid_fluxes()
 	for(int i = 0; i < N+1; i++)
 		fluxes[i] = *fluxes + i*NVARS;
 
-	#pragma acc kernels present(g,N, prleft, prright, Af, res) create(fluxes[:N+1][:NVARS]) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+	#pragma acc kernels present(g,N, prleft, prright, Af, res, flux) create(fluxes[:N+1][:NVARS])
 	{
 		// iterate over interfaces
-		#pragma acc loop independent gang worker vector
+		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
 		for(int i = 0; i < N+1; i++)
 		{
-			//flux->compute_flux(uleft[i], uright[i], fluxes[i]);
-			flux->compute_flux_prim(prleft[i], prright[i], fluxes[i]);
+			//flux->compute_flux_prim(prleft[i], prright[i], fluxes[i]);
+			compute_vanleerflux_prim(prleft[i], prright[i], fluxes[i]);
 
 			// update residual
 			for(int j = 0; j < NVARS; j++)
@@ -227,9 +227,9 @@ void Euler1d::compute_inviscid_fluxes()
 
 void Euler1d::compute_source_term()
 {
-	#pragma acc kernels present(N, u, Af, res) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+	#pragma acc kernels present(N, u, Af, res)
 	{
-		#pragma acc loop independent gang worker vector
+		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
 		for(int i = 1; i <= N; i++)
 		{
 			double p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
@@ -443,7 +443,7 @@ void Euler1dExplicit::run()
 	{
 		int i,j;
 
-		#pragma acc update self(u)
+		#pragma acc update self(u[:N+2][:NVARS])
 
 		#pragma acc parallel loop present(N, u, uold) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		for(int i = 0; i < N+2; i++)
@@ -473,7 +473,7 @@ void Euler1dExplicit::run()
 
 		dt = cfl*mws;
 
-		#pragma ac update device(dt)
+		#pragma acc update device(dt)
 
 		// NOTE: moved apply_boundary_conditions() to the top of the inner loop
 		for(istage = 0; istage < temporalOrder; istage++)
