@@ -4,6 +4,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		std::string inviscid_flux, std::string slope_scheme, std::string face_extrap_scheme, std::string limiter)
 	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), cfl(CFL)
 {
+	ncell = N+2;
 	x = (double*)malloc((N+2)*sizeof(double));
 	dx = (double*)malloc((N+2)*sizeof(double));
 	A = (double*)malloc((N+2)*sizeof(double));
@@ -12,7 +13,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	nodes = (double*)malloc((N+1)*sizeof(double));
 
 	u = (double**)malloc((N+2)*sizeof(double*));
-	u[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	//u[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	prim = (double**)malloc((N+2)*sizeof(double*));
 	prim[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	dudx = (double**)malloc((N+2)*sizeof(double*));
@@ -35,9 +36,12 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		bcvalR[i] = rightBVs[i];
 	}
 
+	for(int i = 0; i < ncell; i++)
+		u[i] = (double*)malloc(NVARS*sizeof(double));
+
 	for(int i = 1; i < N+2; i++)
 	{
-		u[i] = *u + i*NVARS;
+		//u[i] = *u + i*NVARS;
 		prim[i] = *prim + i*NVARS;
 		dudx[i] = *dudx + i*NVARS;
 		res[i] = *res + i*NVARS;
@@ -113,7 +117,7 @@ Euler1d::~Euler1d()
 	free(A);
 	free(Af);
 
-	free(u[0]);			
+	//free(u[0]);			
 	free(prim[0]);		
 	//free(uleft[0]);		
 	//free(uright[0]);	
@@ -121,7 +125,9 @@ Euler1d::~Euler1d()
 	free(prright[0]);	
 	free(dudx[0]);		
 	free(res[0]);
-	
+
+	for(int i = 0; i < N+2; i++)
+		free(u[i]);
 	free(u);
 	free(prim);		
 	//free(uleft);		
@@ -240,139 +246,148 @@ void Euler1d::compute_source_term()
 
 void Euler1d::apply_boundary_conditions()
 {
-	if(bcL == 0)
+	double** u = this->u;
+	double** prim = this->prim;
+	double* bcvalL = this->bcvalL;
+	double* bcvalR = this->bcvalR;
+	double bcL = this->bcL;
+	double bcR = this->bcR;
+	#pragma acc parallel present(prim[:N+2][:NVARS], u[:N+2][:NVARS], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR) num_gangs(1)
 	{
-		// homogeneous Dirichlet - wall
-		u[0][0] = u[1][0];
-		u[0][1] = -u[1][1];
-		u[0][2] = u[1][2];
-		prim[0][0] = prim[1][0];
-		prim[0][1] = -prim[1][1];
-		prim[0][2] = prim[1][2];
-	}
-	else if(bcL == 1)
-	{
-		double M_in, c_in, v_in, p_in;
-		v_in = u[0][1]/u[0][0];
-		p_in = (g-1.0)*(u[0][2] - 0.5*u[0][0]*v_in*v_in);
-		c_in = sqrt(g*p_in/u[0][0]);
-		M_in = v_in/c_in;
-
-		if(M_in >= 1.0)
+		if(bcL == 0)
 		{
-			// supersonic inflow
-			// get conserved variables from pt, Tt and M
-			//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
-			double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
-			double c = sqrt(g*R*T);
-			double v = bcvalL[2]*c;
-			double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
-			double rho = p/(R*T);
-			double E = p/(g-1.0) + 0.5*rho*v*v;
-			/*u[0][0] = 2*rho - u[1][0];
-			u[0][1] = 2*rho*v - u[1][1];
-			u[0][2] = 2*E - u[1][2];*/
-			u[0][0] = rho;
-			u[0][1] = rho*v;
-			u[0][2] = E;
-			prim[0][0] = rho;
-			prim[0][1] = v;
-			prim[0][2] = p;
+			// homogeneous Dirichlet - wall
+			u[0][0] = u[1][0];
+			u[0][1] = -u[1][1];
+			u[0][2] = u[1][2];
+			prim[0][0] = prim[1][0];
+			prim[0][1] = -prim[1][1];
+			prim[0][2] = prim[1][2];
 		}
-		else if(M_in >= 0)
+		else if(bcL == 1)
 		{
-			// subsonic inflow
-			// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
-			double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
-			double* uold0 = u[0];
-			vold = uold0[1]/uold0[0];
-			pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
-			cold = sqrt( g*pold/uold0[0] );
-			vold1 = u[1][1]/u[1][0];
-			pold1 = (g-1)*(u[1][2] - 0.5*u[1][1]*u[1][1]/u[1][0]);
-			cold1 = sqrt( g*pold1/u[1][0] );
+			double M_in, c_in, v_in, p_in;
+			v_in = u[0][1]/u[0][0];
+			p_in = (g-1.0)*(u[0][2] - 0.5*u[0][0]*v_in*v_in);
+			c_in = sqrt(g*p_in/u[0][0]);
+			M_in = v_in/c_in;
 
-			astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
-			dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/astar, 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/astar;
-			dt0 = cfl*dx[0]/(fabs(vold)+cold);
-			lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
-			du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
+			if(M_in >= 1.0)
+			{
+				// supersonic inflow
+				// get conserved variables from pt, Tt and M
+				//double astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+				double T = bcvalL[1]/(1 + (g-1.0)/2.0*bcvalL[2]*bcvalL[2]);
+				double c = sqrt(g*R*T);
+				double v = bcvalL[2]*c;
+				double p = bcvalL[0]*pow( 1+(g-1.0)/2.0*bcvalL[2]*bcvalL[2], -g/(g-1.0) );
+				double rho = p/(R*T);
+				double E = p/(g-1.0) + 0.5*rho*v*v;
+				/*u[0][0] = 2*rho - u[1][0];
+				u[0][1] = 2*rho*v - u[1][1];
+				u[0][2] = 2*E - u[1][2];*/
+				u[0][0] = rho;
+				u[0][1] = rho*v;
+				u[0][2] = E;
+				prim[0][0] = rho;
+				prim[0][1] = v;
+				prim[0][2] = p;
+			}
+			else if(M_in >= 0)
+			{
+				// subsonic inflow
+				// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
+				double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
+				double* uold0 = u[0];
+				vold = uold0[1]/uold0[0];
+				pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
+				cold = sqrt( g*pold/uold0[0] );
+				vold1 = u[1][1]/u[1][0];
+				pold1 = (g-1)*(u[1][2] - 0.5*u[1][1]*u[1][1]/u[1][0]);
+				cold1 = sqrt( g*pold1/u[1][0] );
 
-			v = vold + du;
-			T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/astar);
-			p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
-			u[0][0] = p/(R*T);
-			u[0][1] = u[0][0]*v;
-			u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
-			prim[0][0] = u[0][0];
-			prim[0][1] = v;
-			prim[0][2] = p;
+				astar = 2*g*(g-1.0)/(g+1.0)*Cv*bcvalL[1];
+				dpdu = bcvalL[0]*g/(g-1.0)*pow(1.0-(g-1)/(g+1.0)*vold*vold/astar, 1.0/(g-1.0)) * (-2.0)*(g-1)/(g+1.0)*vold/astar;
+				dt0 = cfl*dx[0]/(fabs(vold)+cold);
+				lambda = (vold1+vold - cold1-cold)*0.5*dt0/dx[0];
+				du = -lambda * (pold1-pold-uold0[0]*cold*(vold1-vold)) / (dpdu-uold0[0]*cold);
 
-			/*c = sqrt(g*p/u[0][0]);
-			M = v/c;
-			std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;*/
-		}
+				v = vold + du;
+				T = bcvalL[1]*(1.0 - (g-1)/(g+1.0)*vold*vold/astar);
+				p = bcvalL[0]*pow(T/bcvalL[1], g/(g-1.0));
+				u[0][0] = p/(R*T);
+				u[0][1] = u[0][0]*v;
+				u[0][2] = p/(g-1.0) + 0.5*u[0][0]*v*v;
+				prim[0][0] = u[0][0];
+				prim[0][1] = v;
+				prim[0][2] = p;
+
+				/*c = sqrt(g*p/u[0][0]);
+				M = v/c;
+				std::cout << "  apply_boundary_conditions(): Inlet ghost cell mach number = " << M << std::endl;*/
+			}
 #ifndef _OPENACC
-		else
-			std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
+			else
+				std::cout << "! Euler1d: apply_boundary_conditions(): Error! Inlet is becoming outlet!" << std::endl;
 #endif
-	}
+		}
+		//else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
+
+		if(bcR == 0)
+		{
+			u[N+1][0] = u[N][0];
+			u[N+1][1] = -u[N][1];
+			u[N+1][2] = u[N][2];
+			prim[N+1][0] = prim[N][0];
+			prim[N+1][1] = -prim[N][1];
+			prim[N+1][2] = prim[N][2];
+		}
+		else if(bcR == 3)
+		{
+			// outflow
+			double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
+			double* uold = u[N+1];
+			vold = uold[1]/uold[0];
+			pold = (g-1.0)*(uold[2]-0.5*uold[0]*vold*vold);
+			cold = sqrt(g*pold/uold[0]);
+			vold1 = u[N][1]/u[N][0];
+			pold1 = (g-1.0)*(u[N][2]-0.5*u[N][0]*vold1*vold1);
+			cold1 = sqrt(g*pold1/u[N][0]);
+
+			dt0 = cfl*dx[N+1]/(fabs(vold)+cold);
+			l1 = (vold+vold1)*0.5*dt0/dx[N+1];
+			l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
+			l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
+
+			r1 = -l1*( u[N+1][0] - u[N][0] - 1.0/(cold*cold)*(pold - pold1));
+			r2 = -l2*( pold - pold1 + u[N+1][0]*cold*(vold - vold1));
+			r3 = -l3*( pold - pold1 - u[N+1][0]*cold*(vold - vold1));
+			Mold = (vold+vold1)/(cold+cold1);
+
+			// check whether supersonic or subsonic
+			if(Mold > 1)
+				dp = 0.5*(r2+r3);
+			else
+				dp = 0;
+
+			drho = r1 + dp/(cold*cold);
+			dv = (r2-dp)/(u[N+1][0]*cold);
+
+			u[N+1][0] += drho;
+			u[N+1][1] = u[N+1][0]*(vold + dv);
+
+			if(Mold > 1)
+				p = pold + dp;
+			else
+				p = bcvalR[0];
+
+			u[N+1][2] = p/(g-1.0) + 0.5*u[N+1][0]*(vold+dv)*(vold+dv);
+			prim[N+1][0] = u[N+1][0];
+			prim[N+1][1] = vold+dv;
+			prim[N+1][2] = p;
+		}
 	//else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
-
-	if(bcR == 0)
-	{
-		u[N+1][0] = u[N][0];
-		u[N+1][1] = -u[N][1];
-		u[N+1][2] = u[N][2];
-		prim[N+1][0] = prim[N][0];
-		prim[N+1][1] = -prim[N][1];
-		prim[N+1][2] = prim[N][2];
 	}
-	else if(bcR == 3)
-	{
-		// outflow
-		double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
-		double* uold = u[N+1];
-		vold = uold[1]/uold[0];
-		pold = (g-1.0)*(uold[2]-0.5*uold[0]*vold*vold);
-		cold = sqrt(g*pold/uold[0]);
-		vold1 = u[N][1]/u[N][0];
-		pold1 = (g-1.0)*(u[N][2]-0.5*u[N][0]*vold1*vold1);
-		cold1 = sqrt(g*pold1/u[N][0]);
-
-		dt0 = cfl*dx[N+1]/(fabs(vold)+cold);
-		l1 = (vold+vold1)*0.5*dt0/dx[N+1];
-		l2 = (vold+vold1 + cold+cold1)*0.5*dt0/dx[N+1];
-		l3 = (vold+vold1 - cold-cold1)*0.5*dt0/dx[N+1];
-
-		r1 = -l1*( u[N+1][0] - u[N][0] - 1.0/(cold*cold)*(pold - pold1));
-		r2 = -l2*( pold - pold1 + u[N+1][0]*cold*(vold - vold1));
-		r3 = -l3*( pold - pold1 - u[N+1][0]*cold*(vold - vold1));
-		Mold = (vold+vold1)/(cold+cold1);
-
-		// check whether supersonic or subsonic
-		if(Mold > 1)
-			dp = 0.5*(r2+r3);
-		else
-			dp = 0;
-
-		drho = r1 + dp/(cold*cold);
-		dv = (r2-dp)/(u[N+1][0]*cold);
-
-		u[N+1][0] += drho;
-		u[N+1][1] = u[N+1][0]*(vold + dv);
-
-		if(Mold > 1)
-			p = pold + dp;
-		else
-			p = bcvalR[0];
-
-		u[N+1][2] = p/(g-1.0) + 0.5*u[N+1][0]*(vold+dv)*(vold+dv);
-		prim[N+1][0] = u[N+1][0];
-		prim[N+1][1] = vold+dv;
-		prim[N+1][2] = p;
-	}
-	//else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 }
 
 Euler1dExplicit::Euler1dExplicit(int num_cells, double length, int leftBCflag, int rightBCflag, std::vector<double> leftBVs, std::vector<double> rightBVs,
@@ -427,25 +442,50 @@ void Euler1dExplicit::run()
 
 	double* c = (double*)malloc((N+2)*sizeof(double));
 	double** uold = (double**)malloc((N+2)*sizeof(double*));
-	uold[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	//uold[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	double** ustage = (double**)malloc((N+2)*sizeof(double*));
 	ustage[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	for(int i = 0; i < N+2; i++)
 	{
-		uold[i] = *uold + i*NVARS;
+		//uold[i] = *uold + i*NVARS;
 		ustage[i] = *ustage + i*NVARS;
 	}
+	
+	for(int i = 0; i < ncell; i++)
+		uold[i] = (double*)malloc(NVARS*sizeof(double));
+
+	double** u = this->u;
+	double** prim = this->prim;
+	//double** RKCoeffs = this->RKCoeffs;
+	double** dudx = this->dudx;
+	double** res = this->res;
+	double** prleft = this->prleft;
+	double** prright = this->prright;
+	double* x = this->x;
+	double* dx = this->dx;
+	double* A = this->A;
+	double* Af = this->Af;
+	double* vol = this->vol;
+	double* nodes = this->nodes;
+	double* bcvalL = this->bcvalL;
+	double* bcvalR = this->bcvalR;
+	double bcL = this->bcL;
+	double bcR = this->bcR;
+	//double N = this->N;
+	double cfl = this->cfl;
 
 	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl)
 	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, istage, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	while(time < ftime)
 	{
+		std::cout << "Euler1dExplicit: run(): Started time loop" << std::endl;
 		int i,j;
 
 		#pragma acc update self(u[:N+2][:NVARS])
+		std::cout << "Euler1dExplicit: run(): Updated self" << std::endl;
 
-		#pragma acc parallel loop present(N, u, uold) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+		#pragma acc parallel loop present(N, u[:N+2][:NVARS], uold[:N+2][:NVARS]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		for(int i = 0; i < N+2; i++)
 		{
 			for(int j = 0; j < NVARS; j++)
@@ -453,6 +493,7 @@ void Euler1dExplicit::run()
 				uold[i][j] = u[i][j];
 			}
 		}
+		std::cout << "Euler1dExplicit: run(): Set uold" << std::endl;
 		
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
@@ -473,18 +514,22 @@ void Euler1dExplicit::run()
 
 		dt = cfl*mws;
 
+		std::cout << "Euler1dExplicit: run(): Computed dt" << std::endl;
+
 		#pragma acc update device(dt)
+
+		std::cout << "Euler1dExplicit: run(): Updated dt" << std::endl;
 
 		// NOTE: moved apply_boundary_conditions() to the top of the inner loop
 		for(istage = 0; istage < temporalOrder; istage++)
 		{
 			// apply BCs
-			#pragma acc parallel present(prim, u, bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR) num_gangs(1)
 			{
 				apply_boundary_conditions();
 			}
+			std::cout << "Euler1dExplicit: run():  Applied BCs" << std::endl;
 
-			#pragma acc parallel loop present(u, ustage, res, N) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			#pragma acc parallel loop present(u[:N+2][:NVARS], ustage[:N+2][:NVARS], res[:N+2][:NVARS], N) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 			for(int i = 0; i < N+2; i++)
 			{
 				for(int j = 0; j < NVARS; j++)
@@ -493,17 +538,21 @@ void Euler1dExplicit::run()
 					res[i][j] = 0;
 				}
 			}
+			std::cout << "Euler1dExplicit: run():  Set ustage and res" << std::endl;
 
 			cslope->compute_slopes();
 
 			rec->compute_face_values();
+			std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
 
 			compute_inviscid_fluxes();
+			std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
 
 			compute_source_term();
+			std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
 
 			// RK stage
-			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			#pragma acc parallel loop present(prim[:N+2][:NVARS], u[:N+2][:NVARS], uold[:N+2][:NVARS], ustage[:N+2][:NVARS], res[:N+2][:NVARS], vol[:N+2], dt, RKCoeffs[:temporalOrder][:3]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 			for(i = 1; i < N+1; i++)
 			{
 				for(j = 0; j < NVARS; j++)
@@ -523,13 +572,14 @@ void Euler1dExplicit::run()
 		step++;
 	}
 
-	#pragma update self(u, prim)
+	#pragma update self(u[:N+2][:NVARS], prim[:N+2][:NVARS])
 	
-	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl)
-	#pragma acc exit data delete(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
+	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl, dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	free(c);
-	free(uold[0]);
+	for(int i = 0; i < ncell; i++)
+		free(uold[i]);
+	//free(uold[0]);
 	free(uold);
 	free(ustage[0]);
 	free(ustage);

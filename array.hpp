@@ -11,6 +11,11 @@ protected:
 	size_t size;
 	bool alloc;
 public:
+	Array1d()
+	{
+		size = 0;
+		alloc = false;
+	}
 	Array1d(size_t sz)
 	{
 		size = sz;
@@ -48,7 +53,19 @@ protected:
 	size_t size;
 	bool alloc;
 public:
-	Array2d(size_t nr, size_t nc)
+	Array2d()
+	{
+		nrows = ncols = size = 0;
+		alloc = false;
+	}
+	Array2d(const size_t nr, const size_t nc)
+	{
+		nrows = nr; ncols = nc;
+		size = ncols*nrows;
+		data = new T[size];
+		alloc = true;
+	}
+	void allocate(const size_t nr, const size_t nc)
 	{
 		nrows = nr; ncols = nc;
 		size = ncols*nrows;

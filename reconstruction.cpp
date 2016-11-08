@@ -157,13 +157,13 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, double const *const _x, d
 		std::cout << "MUSCLReconstruction: Caution: not using any limiter.\n";
 	}
 
-	#pragma acc enter data copyin(this) copyin(lim, k, N)
+	#pragma acc enter data copyin(this) copyin(this->lim, this->k, this->N)
 
 }
 
 MUSCLReconstruction::~MUSCLReconstruction()
 {
-	#pragma acc exit data delete(lim, k, N, this)
+	#pragma acc exit data delete(this->lim, this->k, this->N, this)
 	delete lim;
 }
 

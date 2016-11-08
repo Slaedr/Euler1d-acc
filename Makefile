@@ -31,7 +31,7 @@ ifndef DEBUG
   PROFILE = -pg
   $(info "Compiling debug version")
   ifeq ($(CXX),pgc++)
-    CPPFLAGS = -std=c++11 -g -Minfo=vect,inline
+    CPPFLAGS = -std=c++11 -g #-Minfo=vect,inline
     LFLAGS = 
   else
     CPPFLAGS =  -std=c++14 -ggdb -Winline -ftree-vectorizer-verbose=2

@@ -19,7 +19,8 @@
 class Euler1d
 {
 protected:
-	int N;							///< Number of cells
+	int N;							///< Number of real cells in the grid
+	int ncell;						///< total number of cells including ghost cells
 	double* x;						///< Cell centers
 	double* dx;						///< (1D) Size of each cell
 	double* vol;					///< (3D) Volume of each cell
