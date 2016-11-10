@@ -5,6 +5,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	: N(num_cells), domlen(length), bcL(leftBCflag), bcR(rightBCflag), cfl(CFL)
 {
 	ncell = N+2;
+	nface = N+1;
 	x = (double*)malloc((N+2)*sizeof(double));
 	dx = (double*)malloc((N+2)*sizeof(double));
 	A = (double*)malloc((N+2)*sizeof(double));
@@ -201,14 +202,14 @@ void Euler1d::set_area(int type, std::vector<double>& cellCenteredAreas)
 	}
 }
 
-void Euler1d::compute_inviscid_fluxes()
+void Euler1d::compute_inviscid_fluxes(double** prleft, double** prright, double** res, double* Af)
 {
 	double** fluxes = (double**)malloc((N+1)*sizeof(double*));
 	fluxes[0] = (double*)malloc(NVARS*(N+1)*sizeof(double));
 	for(int i = 0; i < N+1; i++)
 		fluxes[i] = *fluxes + i*NVARS;
 
-	#pragma acc kernels present(g,N, prleft, prright, Af, res, flux) create(fluxes[:N+1][:NVARS])
+	#pragma acc kernels present( prleft, prright, Af, res) create(fluxes[:N+1][:NVARS])
 	{
 		// iterate over interfaces
 		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
@@ -231,9 +232,9 @@ void Euler1d::compute_inviscid_fluxes()
 	free(fluxes);
 }
 
-void Euler1d::compute_source_term()
+void Euler1d::compute_source_term(double** u, double** res, double* Af)
 {
-	#pragma acc kernels present(N, u, Af, res)
+	#pragma acc kernels present(u, Af, res)
 	{
 		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
 		for(int i = 1; i <= N; i++)
@@ -250,11 +251,11 @@ void Euler1d::apply_boundary_conditions()
 	double** prim = this->prim;
 	double* bcvalL = this->bcvalL;
 	double* bcvalR = this->bcvalR;
-	double bcL = this->bcL;
-	double bcR = this->bcR;
-	#pragma acc parallel present(prim[:N+2][:NVARS], u[:N+2][:NVARS], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR) num_gangs(1)
+	int* bcL = &(this->bcL);
+	int* bcR = &(this->bcR);
+	#pragma acc parallel present(prim[:N+2][:NVARS], u[:N+2][:NVARS], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1]) num_gangs(1)
 	{
-		if(bcL == 0)
+		if(*bcL == 0)
 		{
 			// homogeneous Dirichlet - wall
 			u[0][0] = u[1][0];
@@ -264,7 +265,7 @@ void Euler1d::apply_boundary_conditions()
 			prim[0][1] = -prim[1][1];
 			prim[0][2] = prim[1][2];
 		}
-		else if(bcL == 1)
+		else if(*bcL == 1)
 		{
 			double M_in, c_in, v_in, p_in;
 			v_in = u[0][1]/u[0][0];
@@ -297,7 +298,7 @@ void Euler1d::apply_boundary_conditions()
 			{
 				// subsonic inflow
 				// get conserved variables from pt and Tt specified in bcvalL[0] and bcvalL[1] respectively
-				double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p, c, M;
+				double vold, pold, cold, vold1, pold1, cold1, astar, dpdu, dt0, lambda, du, v, T, p;
 				double* uold0 = u[0];
 				vold = uold0[1]/uold0[0];
 				pold = (g-1)*(uold0[2] - 0.5*uold0[1]*uold0[1]/uold0[0]);
@@ -333,7 +334,7 @@ void Euler1d::apply_boundary_conditions()
 		}
 		//else std::cout << "! Euler1D: apply_boundary_conditions(): BC type not recognized!" << std::endl;
 
-		if(bcR == 0)
+		if(*bcR == 0)
 		{
 			u[N+1][0] = u[N][0];
 			u[N+1][1] = -u[N][1];
@@ -342,7 +343,7 @@ void Euler1d::apply_boundary_conditions()
 			prim[N+1][1] = -prim[N][1];
 			prim[N+1][2] = prim[N][2];
 		}
-		else if(bcR == 3)
+		else if(*bcR == 3)
 		{
 			// outflow
 			double l1, l2, l3, cold, cold1, pold, pold1, vold, vold1, dt0, r1, r2, r3, Mold, dp, drho, dv, p;
@@ -456,7 +457,7 @@ void Euler1dExplicit::run()
 
 	double** u = this->u;
 	double** prim = this->prim;
-	//double** RKCoeffs = this->RKCoeffs;
+	double** RKCoeffs = this->RKCoeffs;
 	double** dudx = this->dudx;
 	double** res = this->res;
 	double** prleft = this->prleft;
@@ -469,23 +470,22 @@ void Euler1dExplicit::run()
 	double* nodes = this->nodes;
 	double* bcvalL = this->bcvalL;
 	double* bcvalR = this->bcvalR;
-	double bcL = this->bcL;
-	double bcR = this->bcR;
-	//double N = this->N;
-	double cfl = this->cfl;
+	int* bcL = &(this->bcL);
+	int* bcR = &(this->bcR);
+	//int* N = &(this->N);
+	//double* cfl = &(this->cfl);
 
-	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl)
+	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1], g)
 	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, istage, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	while(time < ftime)
 	{
 		std::cout << "Euler1dExplicit: run(): Started time loop" << std::endl;
-		int i,j;
 
 		#pragma acc update self(u[:N+2][:NVARS])
 		std::cout << "Euler1dExplicit: run(): Updated self" << std::endl;
 
-		#pragma acc parallel loop present(N, u[:N+2][:NVARS], uold[:N+2][:NVARS]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+		#pragma acc parallel loop present(u[:N+2][:NVARS], uold[:N+2][:NVARS]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		for(int i = 0; i < N+2; i++)
 		{
 			for(int j = 0; j < NVARS; j++)
@@ -498,13 +498,13 @@ void Euler1dExplicit::run()
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
 		mws = 1e10;
-		for(i = 1; i < N+1; i++)
+		for(int i = 1; i < N+1; i++)
 		{
 			c[i] = sqrt( g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0] );
 		}
 
 		//double mws = dx[1]/(fabs(u[1][1]) + c[1]);
-		for(i = 2; i < N+1; i++)
+		for(int i = 2; i < N+1; i++)
 		{
 			a = dx[i]/(fabs(u[i][1]) + c[i]);
 			if(a < mws) {
@@ -529,7 +529,7 @@ void Euler1dExplicit::run()
 			}
 			std::cout << "Euler1dExplicit: run():  Applied BCs" << std::endl;
 
-			#pragma acc parallel loop present(u[:N+2][:NVARS], ustage[:N+2][:NVARS], res[:N+2][:NVARS], N) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			#pragma acc parallel loop present(u, ustage, res) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 			for(int i = 0; i < N+2; i++)
 			{
 				for(int j = 0; j < NVARS; j++)
@@ -545,17 +545,17 @@ void Euler1dExplicit::run()
 			rec->compute_face_values();
 			std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
 
-			compute_inviscid_fluxes();
+			compute_inviscid_fluxes(prleft,prright,res,Af);
 			std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
 
-			compute_source_term();
+			compute_source_term(u,res,Af);
 			std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
 
 			// RK stage
-			#pragma acc parallel loop present(prim[:N+2][:NVARS], u[:N+2][:NVARS], uold[:N+2][:NVARS], ustage[:N+2][:NVARS], res[:N+2][:NVARS], vol[:N+2], dt, RKCoeffs[:temporalOrder][:3]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
-			for(i = 1; i < N+1; i++)
+			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			for(int i = 1; i < N+1; i++)
 			{
-				for(j = 0; j < NVARS; j++)
+				for(int j = 0; j < NVARS; j++)
 					u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
 
 				prim[i][0] = u[i][0];
@@ -628,17 +628,16 @@ void Euler1dSteadyExplicit::run()
 	double term = 1.0 + (g-1.0)*0.5*M*M;
 	double Tin = T_t/term;
 	double pin = p_t*pow(term, -g/(g-1.0));
+	double cin;
 
 	double pex = bcvalR[0], tex = bcvalR[1], Mex = bcvalR[2], cex, vex;
-
-	double cin;
 	
 	// set some cells according to inlet condition
 	int pn = N/4;
 	for(int i = 0; i <= pn; i++)
 	{
 		u[i][0] = pin/(R*Tin);
-		double cin = sqrt(g*pin/u[i][0]);
+		cin = sqrt(g*pin/u[i][0]);
 		u[i][1] = u[i][0]*M*cin;
 		u[i][2] = pin/(g-1.0)+0.5*u[i][1]*M*cin;
 		prim[i][0] = u[i][0];
@@ -686,8 +685,8 @@ void Euler1dSteadyExplicit::run()
 		//cslope->compute_slopes();
 		rec->compute_face_values();
 
-		compute_inviscid_fluxes();
-		compute_source_term();
+		compute_inviscid_fluxes(prleft,prright,res,Af);
+		compute_source_term(u,res,Af);
 
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		

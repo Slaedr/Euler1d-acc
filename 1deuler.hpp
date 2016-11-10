@@ -21,6 +21,7 @@ class Euler1d
 protected:
 	int N;							///< Number of real cells in the grid
 	int ncell;						///< total number of cells including ghost cells
+	int nface;						///< total number of interfaces to compute fluxes across
 	double* x;						///< Cell centers
 	double* dx;						///< (1D) Size of each cell
 	double* vol;					///< (3D) Volume of each cell
@@ -66,9 +67,9 @@ public:
 
 	void compute_face_values();
 
-	void compute_inviscid_fluxes();
+	void compute_inviscid_fluxes(double** prleft, double** prright, double** res, double* Af);
 
-	void compute_source_term();
+	void compute_source_term(double** u, double** res, double* Af);
 
 	/// Find new ghost cell values
 	void apply_boundary_conditions();

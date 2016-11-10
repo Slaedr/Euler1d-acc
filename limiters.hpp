@@ -70,6 +70,11 @@ public:
 	double limiter_function(double r) const;
 };
 
+inline double VanAlbadaLimiter::limiter_function(double r) const
+{
+	return 2.0*r/(1.0+r*r);
+}
+
 /// Limiter by Hemker and Koren; see Blazek's book.
 /** Phi(r) := 3r / (2r^2 - r + 2).
  */

@@ -44,11 +44,6 @@ double NoLimiter::limiter_function(double r) const
 	return 1.0;
 }
 
-inline double VanAlbadaLimiter::limiter_function(double r) const
-{
-	return 2.0*r/(1.0+r*r);
-}
-
 double HemkerKorenLimiter::limiter_function(double r) const
 {
 	return 3.0*r/(2.0*r*r-r+2.0);

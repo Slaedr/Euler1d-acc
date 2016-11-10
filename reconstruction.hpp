@@ -84,12 +84,12 @@ public:
 
 class MUSCLReconstruction : public FaceReconstruction
 {
-	double k;											///< Controls order of reconstruction; people generally use 1/3
+	const double k;										///< Controls order of reconstruction; people generally use 1/3
 	std::string limiter;								///< String describing the limiter to use
 	const Limiter* lim;									///< Slope limiter to use
 public:
 	MUSCLReconstruction(const int _N, double const *const x, double const *const *const _u, double const *const *const _dudx, double * const * const uleft,
-			double * const * const uright, std::string _limiter, double _k);
+			double * const * const uright, std::string _limiter, const double _k);
 	~MUSCLReconstruction();
 	void compute_face_values();
 };

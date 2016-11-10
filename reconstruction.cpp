@@ -128,15 +128,15 @@ FaceReconstruction::~FaceReconstruction()
 { }
 
 MUSCLReconstruction::MUSCLReconstruction(const int _N, double const *const _x, double const * const * const _u, double const * const * const _dudx, 
-		double * const * const uleft, double * const * const uright, std::string _limiter, double _k)
-	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright), limiter(_limiter)
+		double * const * const uleft, double * const * const uright, std::string _limiter, const double _k)
+	: FaceReconstruction(_N, _x, _u, _dudx, uleft, uright), limiter(_limiter), k(_k)
 {
 	if(limiter == "vanalbada")
 	{
 		lim = new VanAlbadaLimiter();
 		std::cout << "MUSCLReconstruction: Using Van Albada limiter" << std::endl;
 	}
-	else if(limiter == "minmod")
+	/*else if(limiter == "minmod")
 	{
 		lim = new MinmodLimiter();
 		std::cout << "MUSCLReconstruction: Using minmod limiter" << std::endl;
@@ -155,27 +155,40 @@ MUSCLReconstruction::MUSCLReconstruction(const int _N, double const *const _x, d
 	{
 		lim = new NoLimiter();
 		std::cout << "MUSCLReconstruction: Caution: not using any limiter.\n";
-	}
+	}*/
 
-	#pragma acc enter data copyin(this) copyin(this->lim, this->k, this->N)
-
+	double const * k = &(this->k);
+	int const * N = &(this->N);
+	Limiter const * lim = this->lim;
+	#pragma acc enter data copyin(this) copyin(lim[:1], k[:1], N[:1])
 }
 
 MUSCLReconstruction::~MUSCLReconstruction()
 {
-	#pragma acc exit data delete(this->lim, this->k, this->N, this)
+	#pragma acc exit data delete(lim, k, N, this)
 	delete lim;
 }
 
 void MUSCLReconstruction::compute_face_values()
 {
+	// make local copies of inherited variables for OpenACC
+	double *const *const uleft = this->uleft;
+	double *const *const uright = this->uright;
+	double const *const *const u = this->u;
+	double const *const x = this->x;
+	double const * k = &(this->k);
+	int const * N = &(this->N);
+	Limiter const * lim = this->lim;
+
 	// interior faces
-	#pragma acc kernels present(uleft, uright, u, lim, k, N)
+	#pragma acc parallel present(uleft, uright, u, x, lim, k, N) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 	{
-		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
-		for(size_t i = 1; i <= N-1; i++)
+		#pragma acc loop gang worker vector 
+		for(size_t i = 1; i <= (*N)-1; i++)
 		{
 			double denL, denR, num, rL, rR;
+			
+			#pragma acc loop seq
 			for(size_t j = 0; j < NVARS; j++)
 			{
 				denL = u[i][j]-u[i-1][j];
@@ -185,8 +198,8 @@ void MUSCLReconstruction::compute_face_values()
 				if(fabs(denL) > ZERO_TOL*10)
 				{
 					rL = num/denL;
-					//uleft[i][j] = u[i][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
-					uleft[i][j] = u[i][j] + 0.25*vanalbada_limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+					//uleft[i][j] = u[i][j] + 0.25*lim->limiter_function(rL) * ((1.0+(*k))*num + (1.0-(*k))*denL);
+					uleft[i][j] = u[i][j] + 0.25*vanalbada_limiter_function(rL) * ((1.0+(*k))*num + (1.0-(*k))*denL);
 				}
 				else
 					uleft[i][j] = u[i][j];
@@ -194,8 +207,8 @@ void MUSCLReconstruction::compute_face_values()
 				if(fabs(denR) > ZERO_TOL*10)
 				{
 					rR = num/denR;
-					//uright[i][j] = u[i+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
-					uright[i][j] = u[i+1][j] - 0.25*vanalbada_limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+					//uright[i][j] = u[i+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+(*k))*num + (1.0-(*k))*denR);
+					uright[i][j] = u[i+1][j] - 0.25*vanalbada_limiter_function(rR) * ((1.0+(*k))*num + (1.0-(*k))*denR);
 				}
 				else
 					uright[i][j] = u[i+1][j];
@@ -204,11 +217,13 @@ void MUSCLReconstruction::compute_face_values()
 	}
 	
 	// boundaries
-	#pragma acc parallel present(uleft, uright, u, lim, k, N) num_gangs(1)
+	#pragma acc parallel present(uleft, uright, u, x, lim, k, N) num_gangs(1)
 	{
 		double denL, denR, num, rL, rR;
 		double slope, cc, um0, xm0, umN, xmN;
-		for(int j = 0; j < NVARS; j++)
+
+		#pragma acc loop seq
+		for(size_t j = 0; j < NVARS; j++)
 		{
 			// extrapolate variables
 
@@ -217,9 +232,9 @@ void MUSCLReconstruction::compute_face_values()
 			xm0 = x[0] - (x[1]-x[0]);
 			um0 = slope*xm0 + cc;
 
-			slope = (u[N+1][j] - u[N][j])/(x[N+1]-x[N]);
-			cc = u[N][j] - (u[N+1][j]-u[N][j])/(x[N+1]-x[N])*x[N];
-			xmN = x[N+1] + x[N]-x[N-1];
+			slope = (u[(*N)+1][j] - u[*N][j])/(x[(*N)+1]-x[(*N)]);
+			cc = u[(*N)][j] - (u[(*N)+1][j]-u[(*N)][j])/(x[(*N)+1]-x[(*N)])*x[(*N)];
+			xmN = x[(*N)+1] + x[(*N)]-x[(*N)-1];
 			umN = slope*xmN + cc;
 
 			// left
@@ -231,7 +246,7 @@ void MUSCLReconstruction::compute_face_values()
 			{
 				rL = num/denL;
 				//uleft[0][j] = u[0][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
-				uleft[0][j] = u[0][j] + 0.25*vanalbada_limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+				uleft[0][j] = u[0][j] + 0.25*vanalbada_limiter_function(rL) * ((1.0+(*k))*num + (1.0-(*k))*denL);
 			}
 			else
 				uleft[0][j] = u[0][j];
@@ -240,33 +255,33 @@ void MUSCLReconstruction::compute_face_values()
 			{
 				rR = num/denR;
 				//uright[0][j] = u[1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
-				uright[0][j] = u[1][j] - 0.25*vanalbada_limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+				uright[0][j] = u[1][j] - 0.25*vanalbada_limiter_function(rR) * ((1.0+(*k))*num + (1.0-(*k))*denR);
 			}
 			else
 				uright[0][j] = u[1][j];
 			
 			// right
-			denL = u[N][j]-u[N-1][j];
-			denR = umN - u[N+1][j];
-			num = u[N+1][j]-u[N][j];
+			denL = u[(*N)][j]-u[(*N)-1][j];
+			denR = umN - u[(*N)+1][j];
+			num = u[(*N)+1][j]-u[(*N)][j];
 
 			if(fabs(denL) > ZERO_TOL*10)
 			{
 				rL = num/denL;
-				//uleft[N][j] = u[N][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
-				uleft[N][j] = u[N][j] + 0.25*vanalbada_limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+				//uleft[*N][j] = u[*N][j] + 0.25*lim->limiter_function(rL) * ((1.0+k)*num + (1.0-k)*denL);
+				uleft[(*N)][j] = u[(*N)][j] + 0.25*vanalbada_limiter_function(rL) * ((1.0+(*k))*num + (1.0-(*k))*denL);
 			}
 			else
-				uleft[N][j] = u[N][j];
+				uleft[(*N)][j] = u[(*N)][j];
 
 			if(fabs(denR) > ZERO_TOL*10)
 			{
 				rR = num/denR;
-				//uright[N][j] = u[N+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
-				uright[N][j] = u[N+1][j] - 0.25*vanalbada_limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+				//uright[(*N)][j] = u[(*N)+1][j] - 0.25*lim->limiter_function(rR) * ((1.0+k)*num + (1.0-k)*denR);
+				uright[(*N)][j] = u[(*N)+1][j] - 0.25*vanalbada_limiter_function(rR) * ((1.0+(*k))*num + (1.0-(*k))*denR);
 			}
 			else
-				uright[N][j] = u[N+1][j];
+				uright[(*N)][j] = u[(*N)+1][j];
 		}
 	}
 }
