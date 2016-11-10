@@ -222,7 +222,9 @@ void Euler1d::compute_inviscid_fluxes(double** prleft, double** prright, double*
 			for(int j = 0; j < NVARS; j++)
 			{
 				fluxes[i][j] *= Af[i];
+				#pragma acc atomic update
 				res[i][j] -= fluxes[i][j];
+				#pragma acc atomic update
 				res[i+1][j] += fluxes[i][j];
 			}
 		}
@@ -480,10 +482,11 @@ void Euler1dExplicit::run()
 
 	while(time < ftime)
 	{
-		std::cout << "Euler1dExplicit: run(): Started time loop" << std::endl;
+		//std::cout << "Euler1dExplicit: run(): Started time loop" << std::endl;
 
 		#pragma acc update self(u[:N+2][:NVARS])
-		std::cout << "Euler1dExplicit: run(): Updated self" << std::endl;
+		
+		//std::cout << "Euler1dExplicit: run(): Updated self" << std::endl;
 
 		#pragma acc parallel loop present(u[:N+2][:NVARS], uold[:N+2][:NVARS]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		for(int i = 0; i < N+2; i++)
@@ -493,7 +496,7 @@ void Euler1dExplicit::run()
 				uold[i][j] = u[i][j];
 			}
 		}
-		std::cout << "Euler1dExplicit: run(): Set uold" << std::endl;
+		//std::cout << "Euler1dExplicit: run(): Set uold" << std::endl;
 		
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
@@ -514,11 +517,11 @@ void Euler1dExplicit::run()
 
 		dt = cfl*mws;
 
-		std::cout << "Euler1dExplicit: run(): Computed dt" << std::endl;
+		//std::cout << "Euler1dExplicit: run(): Computed dt" << std::endl;
 
 		#pragma acc update device(dt)
 
-		std::cout << "Euler1dExplicit: run(): Updated dt" << std::endl;
+		//std::cout << "Euler1dExplicit: run(): Updated dt" << std::endl;
 
 		// NOTE: moved apply_boundary_conditions() to the top of the inner loop
 		for(istage = 0; istage < temporalOrder; istage++)
@@ -527,7 +530,8 @@ void Euler1dExplicit::run()
 			{
 				apply_boundary_conditions();
 			}
-			std::cout << "Euler1dExplicit: run():  Applied BCs" << std::endl;
+			
+			//std::cout << "Euler1dExplicit: run():  Applied BCs" << std::endl;
 
 			#pragma acc parallel loop present(u, ustage, res) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 			for(int i = 0; i < N+2; i++)
@@ -538,18 +542,19 @@ void Euler1dExplicit::run()
 					res[i][j] = 0;
 				}
 			}
-			std::cout << "Euler1dExplicit: run():  Set ustage and res" << std::endl;
+			
+			//std::cout << "Euler1dExplicit: run():  Set ustage and res" << std::endl;
 
 			cslope->compute_slopes();
 
 			rec->compute_face_values();
-			std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
+			//std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
 
 			compute_inviscid_fluxes(prleft,prright,res,Af);
-			std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
+			//std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
 
 			compute_source_term(u,res,Af);
-			std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
+			//std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
 
 			// RK stage
 			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)

@@ -26,7 +26,7 @@ ifndef DEBUG
     LFLAGS = -O3 #-lmkl_intel_lp64 -lmkl_intel_thread -liomp5 -lmkl_core -lpthread
   endif
 
-  else
+else
 
   PROFILE = -pg
   $(info "Compiling debug version")
@@ -43,8 +43,15 @@ endif
 ifdef BUILD_WITH_ACC
   $(info 'Compiling with OpenACC')
   ifeq ($(CXX),pgc++)
-    CPPFLAGS := $(CPPFLAGS) -ta=tesla -Minfo=accel
-    LFLAGS := $(LFLAGS) -ta=tesla
+    ifdef BUILD_FOR_MULTICORE
+      $(info 'Compiling for multicore CPU')
+      CPPFLAGS := $(CPPFLAGS) -ta=multicore -Minfo=accel
+      LFLAGS := $(LFLAGS) -ta=multicore
+    else
+      $(info 'Compiling for Nvidia GPU')
+      CPPFLAGS := $(CPPFLAGS) -ta=tesla -Minfo=accel
+      LFLAGS := $(LFLAGS) -ta=tesla
+    endif
   endif
 endif
  
