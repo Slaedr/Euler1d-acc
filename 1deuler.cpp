@@ -420,7 +420,7 @@ Euler1dExplicit::~Euler1dExplicit()
 void Euler1dExplicit::run()
 {
 	int step = 0, istage;
-	double dt, time = 0;
+	double dt = 1.0, time = 0;
 
 	// IC for Sod shock tube
 	for(int i = 0; i < N+2; i++)
@@ -477,8 +477,8 @@ void Euler1dExplicit::run()
 	//int* N = &(this->N);
 	//double* cfl = &(this->cfl);
 
-	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1], g)
-	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, istage, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
+	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1], g, cfl, dt)
+	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], istage, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	while(time < ftime)
 	{
@@ -500,14 +500,14 @@ void Euler1dExplicit::run()
 		
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
-		mws = 1e10;
+		#pragma acc parallel loop present(u, c, cfl, dt) reduction(min:dt) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		for(int i = 1; i < N+1; i++)
 		{
-			c[i] = sqrt( g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0] );
+			c[i] = cfl*dx[i]/(fabs(u[i][1]) + sqrt(g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0]));
+			dt = fmin(dt, c[i]);
 		}
 
-		//double mws = dx[1]/(fabs(u[1][1]) + c[1]);
-		for(int i = 2; i < N+1; i++)
+		/*for(int i = 2; i < N+1; i++)
 		{
 			a = dx[i]/(fabs(u[i][1]) + c[i]);
 			if(a < mws) {
@@ -515,13 +515,9 @@ void Euler1dExplicit::run()
 			}
 		}
 
-		dt = cfl*mws;
+		dt = cfl*mws;*/
 
 		//std::cout << "Euler1dExplicit: run(): Computed dt" << std::endl;
-
-		#pragma acc update device(dt)
-
-		//std::cout << "Euler1dExplicit: run(): Updated dt" << std::endl;
 
 		// NOTE: moved apply_boundary_conditions() to the top of the inner loop
 		for(istage = 0; istage < temporalOrder; istage++)

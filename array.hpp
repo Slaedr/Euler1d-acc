@@ -10,29 +10,82 @@ protected:
 	T* data;
 	size_t size;
 	bool alloc;
+	bool device_alloc;
 public:
 	Array1d()
 	{
 		size = 0;
 		alloc = false;
+		device_alloc = false;
 	}
 	Array1d(size_t sz)
 	{
 		size = sz;
 		data = new T[size];
 		alloc = true;
+		device_alloc = false;
 	}
 	~Array1d()
 	{
+		if(device_alloc)
+		{
+			#pragma acc exit data delete(data[:size])
+			#pragma acc exit data delete(this)
+		}
 		if(alloc)
 			delete [] data;
 	}
+	
+	void allocate(const size_t sz)
+	{
+		size = sz;
+		data = new T[size];
+		alloc = true;
+	}
 
+	void device_allocate()
+	{
+		if(alloc)
+		{
+			#pragma acc enter data copyin(this)
+			#pragma acc enter data create(data[:size])
+			device_alloc = true;
+		}
+	}
+
+	void device_delete()
+	{
+		if(device_alloc)
+		{
+			#pragma acc exit data delete(data[:size])
+			#pragma acc exit data delete(this)
+			device_alloc = false;
+		}
+	}
+
+	void device_update()
+	{
+		if(alloc && device_alloc)
+		{
+			#pragma acc update device(data[:size])
+		}
+	}
+
+	void update()
+	{
+		if(alloc && device_alloc)
+		{
+			#pragma acc update self(data[:size])
+		}
+	}
+
+#pragma acc routine seq
 	T& operator[](const size_t i)
 	{
 		return data[i];
 	}
 
+#pragma acc routine seq
 	T operator[](const size_t i) const
 	{
 		return data[i];
