@@ -14,7 +14,7 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 	nodes = (double*)malloc((N+1)*sizeof(double));
 
 	u = (double**)malloc((N+2)*sizeof(double*));
-	//u[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
+	u[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	prim = (double**)malloc((N+2)*sizeof(double*));
 	prim[0] = (double*)malloc((N+2)*NVARS*sizeof(double));
 	dudx = (double**)malloc((N+2)*sizeof(double*));
@@ -37,12 +37,12 @@ Euler1d::Euler1d(int num_cells, double length, int leftBCflag, int rightBCflag, 
 		bcvalR[i] = rightBVs[i];
 	}
 
-	for(int i = 0; i < ncell; i++)
-		u[i] = (double*)malloc(NVARS*sizeof(double));
+	//for(int i = 0; i < ncell; i++)
+	//	u[i] = (double*)malloc(NVARS*sizeof(double));
 
 	for(int i = 1; i < N+2; i++)
 	{
-		//u[i] = *u + i*NVARS;
+		u[i] = *u + i*NVARS;
 		prim[i] = *prim + i*NVARS;
 		dudx[i] = *dudx + i*NVARS;
 		res[i] = *res + i*NVARS;
@@ -118,7 +118,7 @@ Euler1d::~Euler1d()
 	free(A);
 	free(Af);
 
-	//free(u[0]);			
+	free(u[0]);			
 	free(prim[0]);		
 	//free(uleft[0]);		
 	//free(uright[0]);	
@@ -127,8 +127,8 @@ Euler1d::~Euler1d()
 	free(dudx[0]);		
 	free(res[0]);
 
-	for(int i = 0; i < N+2; i++)
-		free(u[i]);
+	//for(int i = 0; i < N+2; i++)
+	//	free(u[i]);
 	free(u);
 	free(prim);		
 	//free(uleft);		
@@ -209,10 +209,11 @@ void Euler1d::compute_inviscid_fluxes(double** prleft, double** prright, double*
 	for(int i = 0; i < N+1; i++)
 		fluxes[i] = *fluxes + i*NVARS;
 
-	#pragma acc kernels present( prleft, prright, Af, res) create(fluxes[:N+1][:NVARS])
+	//#pragma acc kernels present( prleft, prright, Af, res) create(fluxes[:N+1][:NVARS])
 	{
 		// iterate over interfaces
-		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
+#pragma acc declare present(prleft, prright, Af, res)
+#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
 		for(int i = 0; i < N+1; i++)
 		{
 			//flux->compute_flux_prim(prleft[i], prright[i], fluxes[i]);
@@ -236,9 +237,10 @@ void Euler1d::compute_inviscid_fluxes(double** prleft, double** prright, double*
 
 void Euler1d::compute_source_term(double** u, double** res, double* Af)
 {
-	#pragma acc kernels present(u, Af, res)
+	//#pragma acc kernels present(u, Af, res)
+#pragma acc declare present(u, Af, res) 
 	{
-		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
+#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
 		for(int i = 1; i <= N; i++)
 		{
 			double p = (g-1.0)*(u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]);
@@ -255,7 +257,7 @@ void Euler1d::apply_boundary_conditions()
 	double* bcvalR = this->bcvalR;
 	int* bcL = &(this->bcL);
 	int* bcR = &(this->bcR);
-	#pragma acc parallel present(prim[:N+2][:NVARS], u[:N+2][:NVARS], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1]) num_gangs(1)
+	//#pragma acc parallel present(prim[:N+2][:NVARS], u[:N+2][:NVARS], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1]) num_gangs(1)
 	{
 		if(*bcL == 0)
 		{
@@ -424,6 +426,7 @@ void Euler1dExplicit::run()
 
 	// IC for Sod shock tube
 	for(int i = 0; i < N+2; i++)
+	{
 		if(x[i] <= 0.5)
 		{
 			u[i][0] = 1.0;
@@ -442,6 +445,9 @@ void Euler1dExplicit::run()
 			prim[i][1] = 0;
 			prim[i][2] = 0.1;
 		}
+		for(int j = 0; j < NVARS; j++)
+			dudx[i][j] = 0;
+	}
 
 	double* c = (double*)malloc((N+2)*sizeof(double));
 	double** uold = (double**)malloc((N+2)*sizeof(double*));
@@ -477,105 +483,109 @@ void Euler1dExplicit::run()
 	//int* N = &(this->N);
 	//double* cfl = &(this->cfl);
 
-	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1], g, cfl, dt)
+	#pragma acc enter data copyin(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL[:1], bcR[:1], g, cfl, dt, time, ftime)
 	#pragma acc enter data create(dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], istage, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
 
 	while(time < ftime)
 	{
 		//std::cout << "Euler1dExplicit: run(): Started time loop" << std::endl;
 
-		#pragma acc update self(u[:N+2][:NVARS])
-		
-		//std::cout << "Euler1dExplicit: run(): Updated self" << std::endl;
-
-		#pragma acc parallel loop present(u[:N+2][:NVARS], uold[:N+2][:NVARS]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
-		for(int i = 0; i < N+2; i++)
+#pragma acc parallel present(u[:N+2][:NVARS], uold[:N+2][:NVARS], ustage, res, prim, vol, dx, RKCoeffs, c, cfl, dt, g, rec) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		{
-			for(int j = 0; j < NVARS; j++)
-			{
-				uold[i][j] = u[i][j];
-			}
-		}
-		//std::cout << "Euler1dExplicit: run(): Set uold" << std::endl;
-		
-		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
-		
-		#pragma acc parallel loop present(u, c, cfl, dt) reduction(min:dt) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
-		for(int i = 1; i < N+1; i++)
-		{
-			c[i] = cfl*dx[i]/(fabs(u[i][1]) + sqrt(g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0]));
-			dt = fmin(dt, c[i]);
-		}
-
-		/*for(int i = 2; i < N+1; i++)
-		{
-			a = dx[i]/(fabs(u[i][1]) + c[i]);
-			if(a < mws) {
-				mws = a;
-			}
-		}
-
-		dt = cfl*mws;*/
-
-		//std::cout << "Euler1dExplicit: run(): Computed dt" << std::endl;
-
-		// NOTE: moved apply_boundary_conditions() to the top of the inner loop
-		for(istage = 0; istage < temporalOrder; istage++)
-		{
-			// apply BCs
-			{
-				apply_boundary_conditions();
-			}
-			
-			//std::cout << "Euler1dExplicit: run():  Applied BCs" << std::endl;
-
-			#pragma acc parallel loop present(u, ustage, res) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			//#pragma acc parallel loop present(u[:N+2][:NVARS], uold[:N+2][:NVARS]) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+#pragma acc loop independent gang worker vector 
 			for(int i = 0; i < N+2; i++)
 			{
 				for(int j = 0; j < NVARS; j++)
 				{
-					ustage[i][j] = u[i][j];
-					res[i][j] = 0;
+					uold[i][j] = u[i][j];
 				}
 			}
+			//std::cout << "Euler1dExplicit: run(): Set uold" << std::endl;
 			
-			//std::cout << "Euler1dExplicit: run():  Set ustage and res" << std::endl;
-
-			cslope->compute_slopes();
-
-			rec->compute_face_values();
-			//std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
-
-			compute_inviscid_fluxes(prleft,prright,res,Af);
-			//std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
-
-			compute_source_term(u,res,Af);
-			//std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
-
-			// RK stage
-			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
+			
+			//#pragma acc parallel loop present(u, c, cfl, dt) reduction(min:dt) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+#pragma acc loop independent reduction(min:dt) gang worker vector
 			for(int i = 1; i < N+1; i++)
 			{
-				for(int j = 0; j < NVARS; j++)
-					u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
-
-				prim[i][0] = u[i][0];
-				prim[i][1] = u[i][1]/u[i][0];
-				prim[i][2] = (g-1.0)*(u[i][2] - 0.5*u[i][1]*prim[i][1]);
+				c[i] = cfl*dx[i]/(fabs(u[i][1]) + sqrt(g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0]));
+				dt = fmin(dt, c[i]);
 			}
 
+			/*for(int i = 2; i < N+1; i++)
+			{
+				a = dx[i]/(fabs(u[i][1]) + c[i]);
+				if(a < mws) {
+					mws = a;
+				}
+			}
+
+			dt = cfl*mws;*/
+
+			//std::cout << "Euler1dExplicit: run(): Computed dt" << std::endl;
+
+			// NOTE: moved apply_boundary_conditions() to the top of the inner loop
+			for(istage = 0; istage < temporalOrder; istage++)
+			{
+				// apply BCs
+				apply_boundary_conditions();
+				
+				//std::cout << "Euler1dExplicit: run():  Applied BCs" << std::endl;
+
+				//#pragma acc parallel loop present(u, ustage, res) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+#pragma acc loop independent gang worker vector
+				for(int i = 0; i < N+2; i++)
+				{
+					for(int j = 0; j < NVARS; j++)
+					{
+						ustage[i][j] = u[i][j];
+						res[i][j] = 0;
+					}
+				}
+				
+				//std::cout << "Euler1dExplicit: run():  Set ustage and res" << std::endl;
+
+				//cslope->compute_slopes();
+
+				//rec->compute_face_values();
+				compute_face_values_MUSCL(&N, x, u, prleft, prright);
+				//std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
+
+				compute_inviscid_fluxes(prleft,prright,res,Af);
+				//std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
+
+				compute_source_term(u,res,Af);
+				//std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
+
+				// RK stage
+				//#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+#pragma acc loop independent gang worker vector
+				for(int i = 1; i < N+1; i++)
+				{
+					for(int j = 0; j < NVARS; j++)
+						u[i][j] = RKCoeffs[istage][0]*uold[i][j] + RKCoeffs[istage][1]*ustage[i][j] + RKCoeffs[istage][2]*dt/vol[i]*res[i][j];
+
+					prim[i][0] = u[i][0];
+					prim[i][1] = u[i][1]/u[i][0];
+					prim[i][2] = (g-1.0)*(u[i][2] - 0.5*u[i][1]*prim[i][1]);
+				}
+
+			}
 		}
+		// end parallel region
 
 		if(step % 10 == 0)
 			std::cout << "Euler1dExplicit: run(): Step " << step << " - Time = " << time << std::endl;
 
+		#pragma acc update self(dt)
 		time += dt;
 		step++;
 	}
 
 	#pragma update self(u[:N+2][:NVARS], prim[:N+2][:NVARS])
 	
-	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl, dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS])
+	#pragma acc exit data delete(u[:N+2][:NVARS], prim[:N+2][:NVARS], x[:N+2], dx[:N+2], A[:N+2], vol[:N+2], Af[:N+1], nodes[:N+1], RKCoeffs[:temporalOrder][:3], bcvalL[:NVARS], bcvalR[:NVARS], bcL, bcR, g, N, cfl, dudx[:N+2][:NVARS], res[:N+2][:NVARS], prleft[:N+1][:NVARS], prright[:N+1][:NVARS], dt, mws, c[:N+2], uold[:N+2][:NVARS], ustage[:N+2][:NVARS], time, ftime)
 
 	free(c);
 	for(int i = 0; i < ncell; i++)
