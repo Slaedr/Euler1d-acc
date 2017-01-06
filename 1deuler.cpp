@@ -569,6 +569,7 @@ void Euler1dExplicit::run()
 		if(step % 10 == 0)
 			std::cout << "Euler1dExplicit: run(): Step " << step << " - Time = " << time << std::endl;
 
+#pragma acc update self(dt)
 		time += dt;
 		step++;
 	}
