@@ -125,7 +125,4 @@ public:
 	void compute_face_values();
 };*/
 
-#pragma acc routine gang
-void compute_face_values_MUSCL(int const* N, double const *const x, double const *const *const u, double *const *const uleft, double *const *const uright);
-
 #endif
