@@ -163,7 +163,7 @@ void VanLeerFlux::compute_flux_prim(double const *const uleft, double const *con
 		flux[j] = fluxL[j] + fluxR[j];
 }
 
-void compute_vanleerflux_prim(double const *const uleft, double const *const uright, double *const flux)
+void compute_vanleerflux_prim(double const *const uleft, double const *const uright, double *const flux, const double g)
 {
 	double fluxL[NVARS];
 	double fluxR[NVARS];

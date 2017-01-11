@@ -1,10 +1,10 @@
 ----------------------------------------
-Begin PBS Prologue Wed Jan 11 17:42:51 EST 2017 1484174571
-Job ID:		76001239.gm-1r16-n04.guillimin.clumeq.ca
+Begin PBS Prologue Wed Jan 11 12:28:48 EST 2017 1484155728
+Job ID:		75968422.gm-1r16-n04.guillimin.clumeq.ca
 Username:	akashi
 Group:		rck-371-01
-Nodes:		aw-4r14-n02
-End PBS Prologue Wed Jan 11 17:42:51 EST 2017 1484174571
+Nodes:		aw-4r13-n13
+End PBS Prologue Wed Jan 11 12:28:48 EST 2017 1484155728
 ----------------------------------------
 Unsteady: 10000 1 0 0 vanleer 0.2 0.2 1
 Euler1d: Using Van Leer numerical flux.
@@ -1541,19 +1541,19 @@ Euler1dExplicit: run(): Step 15250 - Time = 0.199795
 Euler1dExplicit: run(): Step 15260 - Time = 0.199926
 Euler1dExplicit: run(): Done. Number of time steps = 15266, final time = 0.200004
 ----------------------------------------
-Begin PBS Epilogue Wed Jan 11 18:02:21 EST 2017 1484175741
-Job ID:		76001239.gm-1r16-n04.guillimin.clumeq.ca
+Begin PBS Epilogue Wed Jan 11 12:29:17 EST 2017 1484155757
+Job ID:		75968422.gm-1r16-n04.guillimin.clumeq.ca
 Username:	akashi
 Group:		rck-371-01
-Job Name:	sodst_acc_gpu
-Session:	16273
-Limits:		neednodes=1:ppn=16:gpus=1:sandybridge,nodes=1:ppn=16:gpus=1:sandybridge,walltime=00:20:00
-Resources:	cput=00:18:45,energy_used=0,mem=178352kb,vmem=96708264kb,walltime=00:19:30
+Job Name:	sodst_acc_cpus
+Session:	28359
+Limits:		neednodes=1:ppn=16:gpus=1:sandybridge,nodes=1:ppn=16:gpus=1:sandybridge,walltime=00:10:00
+Resources:	cput=00:00:15,energy_used=0,mem=8616kb,vmem=50828kb,walltime=00:00:30
 Queue:		k20
 Account:	rck-371-aa
 Exit code:	0
-Nodes:	aw-4r14-n02
+Nodes:	aw-4r13-n13
 Killing leftovers...
 
-End PBS Epilogue Wed Jan 11 18:02:22 EST 2017 1484175742
+End PBS Epilogue Wed Jan 11 12:29:17 EST 2017 1484155757
 ----------------------------------------

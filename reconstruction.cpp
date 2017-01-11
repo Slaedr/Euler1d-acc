@@ -181,7 +181,7 @@ void MUSCLReconstruction::compute_face_values()
 	Limiter const * lim = this->lim;
 
 	// interior faces
-	#pragma acc parallel present(uleft, uright, u, x, lim, k, N) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+	#pragma acc parallel present(uleft, uright, u, x, lim, k, N, this) device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 	{
 		#pragma acc loop gang worker vector 
 		for(size_t i = 1; i <= (*N)-1; i++)
@@ -217,7 +217,7 @@ void MUSCLReconstruction::compute_face_values()
 	}
 	
 	// boundaries
-	#pragma acc parallel present(uleft, uright, u, x, lim, k, N) num_gangs(1)
+	#pragma acc parallel present(uleft, uright, u, x, lim, k, N, this) num_gangs(1)
 	{
 		double denL, denR, num, rL, rR;
 		double slope, cc, um0, xm0, umN, xmN;

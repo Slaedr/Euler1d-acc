@@ -51,7 +51,7 @@ public:
 };
 
 #pragma acc routine seq
-void compute_vanleerflux_prim(double const *const uleft, double const *const uright, double *const flux);
+void compute_vanleerflux_prim(double const *const uleft, double const *const uright, double *const flux, const double g);
 
 #endif
 
