@@ -234,6 +234,42 @@ void Euler1d::compute_inviscid_fluxes(double** prleft, double** prright, double*
 	free(fluxes);
 }
 
+void Euler1d::compute_inviscid_fluxes_cellwise(double** prleft, double** prright, double** res, double* Af)
+{
+	// NOTE: Do we really need to allocate this much?
+	double** fluxes = (double**)malloc((N+1)*sizeof(double*));
+	fluxes[0] = (double*)malloc(NVARS*(N+1)*sizeof(double));
+	for(int i = 0; i < N+1; i++)
+		fluxes[i] = *fluxes + i*NVARS;
+
+	#pragma acc kernels present( prleft, prright, Af, res) create(fluxes[:N+1][:NVARS])
+	{
+		// iterate over interfaces
+		#pragma acc loop independent gang worker device_type(nvidia) vector(NVIDIA_VECTOR_LENGTH)
+		for(int i = 1; i < N+1; i++)
+		{
+			compute_vanleerflux_prim(prleft[i-1], prright[i-1], fluxes[i]);
+
+			for(int j = 0; j < NVARS; j++)
+			{
+				fluxes[i][j] *= Af[i-1];
+				res[i][j] += fluxes[i][j];
+			}
+			
+			compute_vanleerflux_prim(prleft[i], prright[i], fluxes[i]);
+
+			for(int j = 0; j < NVARS; j++)
+			{
+				fluxes[i][j] *= Af[i];
+				res[i][j] -= fluxes[i][j];
+			}
+		}
+	}
+	
+	free(fluxes[0]);
+	free(fluxes);
+}
+
 void Euler1d::compute_source_term(double** u, double** res, double* Af)
 {
 	#pragma acc kernels present(u, Af, res)
@@ -500,7 +536,7 @@ void Euler1dExplicit::run()
 		
 		// find time step as dt = CFL * min{ dx[i]/(|v[i]|+c[i]) }
 		
-		#pragma acc parallel loop present(u, c, cfl, dt) reduction(min:dt) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+		#pragma acc parallel loop present(u, c, cfl, dt, g) reduction(min:dt) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 		for(int i = 1; i < N+1; i++)
 		{
 			c[i] = cfl*dx[i]/(fabs(u[i][1]) + sqrt(g*(g-1.0) * (u[i][2] - 0.5*u[i][1]*u[i][1]/u[i][0]) / u[i][0]));
@@ -546,14 +582,14 @@ void Euler1dExplicit::run()
 			rec->compute_face_values();
 			//std::cout << "Euler1dExplicit: run():  Computed face values" << std::endl;
 
-			compute_inviscid_fluxes(prleft,prright,res,Af);
+			compute_inviscid_fluxes_cellwise(prleft,prright,res,Af);
 			//std::cout << "Euler1dExplicit: run():  Computed fluxes" << std::endl;
 
 			compute_source_term(u,res,Af);
 			//std::cout << "Euler1dExplicit: run():  Computed source terms" << std::endl;
 
 			// RK stage
-			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
+			#pragma acc parallel loop present(prim, u, uold, ustage, res, vol, dt, RKCoeffs, g) gang worker vector device_type(nvidia) vector_length(NVIDIA_VECTOR_LENGTH)
 			for(int i = 1; i < N+1; i++)
 			{
 				for(int j = 0; j < NVARS; j++)

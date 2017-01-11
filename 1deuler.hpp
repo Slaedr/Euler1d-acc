@@ -68,6 +68,8 @@ public:
 	void compute_face_values();
 
 	void compute_inviscid_fluxes(double** prleft, double** prright, double** res, double* Af);
+	
+	void compute_inviscid_fluxes_cellwise(double** prleft, double** prright, double** res, double* Af);
 
 	void compute_source_term(double** u, double** res, double* Af);
 

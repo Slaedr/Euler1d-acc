@@ -1,5 +1,5 @@
 #! /bin/bash
-#PBS -l nodes=1:ppn=1:gpus=1
+#PBS -l nodes=1:ppn=16:gpus=1:sandybridge
 #PBS -l walltime=00:20:00
 #PBS -A rck-371-aa
 #PBS -o sodst_acc_gpu.log
