@@ -521,7 +521,7 @@ void Euler1dExplicit::run()
 	{
 		//std::cout << "Euler1dExplicit: run(): Started time loop" << std::endl;
 
-		#pragma acc update self(u[:N+2][:NVARS])
+		//#pragma acc update self(u[:N+2][:NVARS])
 		
 		//std::cout << "Euler1dExplicit: run(): Updated self" << std::endl;
 
